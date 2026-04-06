@@ -1,0 +1,25 @@
+[0.561s] Invoking command in '/home/enric-linux/my_ws/src/my_pakage': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/enric-linux/my_ws/build/my_pakage/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/enric-linux/my_ws/install/my_pakage/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/my_pakage build --build-base /home/enric-linux/my_ws/build/my_pakage/build install --record /home/enric-linux/my_ws/build/my_pakage/install.log --single-version-externally-managed install_data
+[0.752s] running egg_info
+[0.767s] writing ../../build/my_pakage/my_pakage.egg-info/PKG-INFO
+[0.767s] writing dependency_links to ../../build/my_pakage/my_pakage.egg-info/dependency_links.txt
+[0.767s] writing entry points to ../../build/my_pakage/my_pakage.egg-info/entry_points.txt
+[0.767s] writing requirements to ../../build/my_pakage/my_pakage.egg-info/requires.txt
+[0.767s] writing top-level names to ../../build/my_pakage/my_pakage.egg-info/top_level.txt
+[0.797s] reading manifest file '../../build/my_pakage/my_pakage.egg-info/SOURCES.txt'
+[0.797s] writing manifest file '../../build/my_pakage/my_pakage.egg-info/SOURCES.txt'
+[0.797s] running build
+[0.798s] running build_py
+[0.798s] copying my_pakage/publisher.py -> /home/enric-linux/my_ws/build/my_pakage/build/lib/my_pakage
+[0.798s] running install
+[0.802s] running install_lib
+[0.818s] copying /home/enric-linux/my_ws/build/my_pakage/build/lib/my_pakage/publisher.py -> /home/enric-linux/my_ws/install/my_pakage/lib/python3.12/site-packages/my_pakage
+[0.818s] byte-compiling /home/enric-linux/my_ws/install/my_pakage/lib/python3.12/site-packages/my_pakage/publisher.py to publisher.cpython-312.pyc
+[0.819s] running install_data
+[0.819s] running install_egg_info
+[0.835s] removing '/home/enric-linux/my_ws/install/my_pakage/lib/python3.12/site-packages/my_pakage-0.0.1-py3.12.egg-info' (and everything under it)
+[0.835s] Copying ../../build/my_pakage/my_pakage.egg-info to /home/enric-linux/my_ws/install/my_pakage/lib/python3.12/site-packages/my_pakage-0.0.1-py3.12.egg-info
+[0.835s] running install_scripts
+[0.931s] Installing my_node script to /home/enric-linux/my_ws/install/my_pakage/lib/my_pakage
+[0.931s] Installing my_publisher script to /home/enric-linux/my_ws/install/my_pakage/lib/my_pakage
+[0.931s] writing list of installed files to '/home/enric-linux/my_ws/build/my_pakage/install.log'
+[0.947s] Invoked command in '/home/enric-linux/my_ws/src/my_pakage' returned '0': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/enric-linux/my_ws/build/my_pakage/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/enric-linux/my_ws/install/my_pakage/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/my_pakage build --build-base /home/enric-linux/my_ws/build/my_pakage/build install --record /home/enric-linux/my_ws/build/my_pakage/install.log --single-version-externally-managed install_data
