@@ -9,9 +9,6 @@ setup.py
 ../../build/my_pakage/my_pakage.egg-info/top_level.txt
 ../../build/my_pakage/my_pakage.egg-info/zip-safe
 my_pakage/__init__.py
-my_pakage/my_node.py
-my_pakage/publisher.py
-my_pakage/suscriber.py
 resource/my_pakage
 test/test_copyright.py
 test/test_flake8.py

@@ -26,7 +26,9 @@ setup(
         'console_scripts': [
             'my_node = my_pakage.my_node:main',
             'my_publisher = my_pakage.publisher:main',
-            'my_suscriber = my_pakage.suscriber:main'
+            'my_suscriber = my_pakage.suscriber:main',
+            'simulated_sensor = my_pakage.simulated_sensors:main',
+            'proximiti_direccion = my_pakage.proximiti_sensors.proximiti_direccion:main'
 
         ],
     },
