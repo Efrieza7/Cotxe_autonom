@@ -28,7 +28,8 @@ setup(
             'my_publisher = my_pakage.publisher:main',
             'my_suscriber = my_pakage.suscriber:main',
             'simulated_sensor = my_pakage.simulated_sensors:main',
-            'proximiti_direccion = my_pakage.proximiti_sensors.proximiti_direccion:main'
+            'proximiti_direccion = my_pakage.proximiti_sensors.proximiti_direccion:main',
+            'imu_suscriber = my_pakage.EKF_slam.imu_suscriber:main'
 
         ],
     },
