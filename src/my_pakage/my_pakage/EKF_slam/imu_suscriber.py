@@ -8,6 +8,7 @@ from my_pakage.msg import IMU
 class IMUSuscriber(Node):
     def __init__(self):
         super().__init__('imu_suscriber')
+        #falta el publixher i el test
         self.imu_subscriver = self.create_subscription(
             IMU,
             'IMU_data',
