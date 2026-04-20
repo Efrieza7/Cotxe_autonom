@@ -1,4 +1,5 @@
 [console_scripts]
+imu_suscriber = my_pakage.EKF_slam.imu_suscriber:main
 my_node = my_pakage.my_node:main
 my_publisher = my_pakage.publisher:main
 my_suscriber = my_pakage.suscriber:main

@@ -9,69 +9,90 @@
 #gzy angle entre els eixos y i z
 #gxy angle entre els eixos x i y
 #v velocitat del cotxe
-#axp acceleracio en x del cotxe produida pel pes del cotxe
-#ayp acceleracio en y del cotxe produida pel pes del cotxe
-#azp acceleracio en z del cotxe produida pel pes del cotxe
-
 #x i y posicio del cotxe en el pla, es calcula a partir de les dades de l'IMU i es publica en un topic per a que altres nodes puguin utilitzar aquesta informacio per a la navegacio del cotxe.
+
 import rclpy
 import math
 from rclpy.node import Node
-from my_pakage.msg import IMU
+from my_pakage.msg import IMU_reader, IMU_transformed
 
 
 class IMUSuscriber(Node):
     def __init__(self):
         super().__init__('imu_suscriber')
-        self.start_position
-        #falta el publixher i el test
-        self.imu_subscriver = self.create_subscription(
-            IMU,
-            'IMU_data',
+        self.ap = 0.0
+        self.gzx = 0.0
+        self.gzy = 0.0
+        self.gxy = 0.0
+        self.v = 0.0
+        self.x = 0.0
+        self.y = 0.0
+        
+        self.imu_subscriber = self.create_subscription(
+            IMU_reader,
+            'imu_readers',
             self.listener_callback,
             10
         )
-        self.imu_publisher = self.create_publisher(IMU,'IMU_data',10)
+        self.imu_publisher = self.create_publisher(IMU_transformed, 'imu_transformed', 10)
 
     def start_position(self, msg):
+        """Calcula els angles inicials a partir de les dades de l'IMU"""
+        try:
+            self.gzx = (math.acos(msg.ax / msg.az)) * 180 / math.pi
+        except:
+            self.gzx = 0.0
+        try:
+            self.gzy = (math.acos(msg.ay / msg.az)) * 180 / math.pi
+        except:
+            self.gzy = 0.0
+        try:
+            self.gxy = (math.acos(msg.ax / msg.ay)) * 180 / math.pi
+        except:
+            self.gxy = 0.0
+        
+        self.ap = (msg.ax**2 + msg.ay**2 + msg.az**2)**0.5
 
-        msg.gzx = (math.arccosine(msg.ax/msg.az))
-        msg.gzy = (math.arccosine(msg.ay/msg.az))
-        msg.gxy = (math.arccosine(msg.ax/msg.ay))
-
-        msg.axp = msg.ax
-        msg.ayp = msg.ay
-        msg.azp = msg.az
-
-        return msg.gzx, msg.gzy, msg.gxy, msg.axp, msg.ayp, msg.azp
-    
     def listener_callback(self, msg):
-
-        msg.gzx = msg.vgx*0.1 + msg.gzx
-        msg.gzy = msg.vgy*0.1 + msg.gzy
-        msg.gxy = msg.vgz*0.1 + msg.gxy
+        """Processa dades de l'IMU i calcula posicio"""
+        if self.gzx == 0.0 and self.gzy == 0.0:
+            self.start_position(msg)
         
-        msg.axp = math.cos(msg.gzx)*msg.axp + math.cos(msg.gzy)*msg.ayp + math.cos(msg.gxy)*msg.azp
-        msg.ayp = math.cos(msg.gzx)*msg.axp + math.cos(msg.gzy)*msg.ayp + math.cos(msg.gxy)*msg.azp
-        msg.azp = math.cos(msg.gzx)*msg.axp + math.cos(msg.gzy)*msg.ayp + math.cos(msg.gxy)*msg.azp
+        # Actualitza els angles segons velocitats angulars
+        if self.gxy < 90:
 
-        msg.v = (msg.ax-msg.axp)*0.1 + msg.v
-        msg.x = msg.v*math.cos(msg.gyx)
-        msg.y = msg.v*math.sin(msg.gyx)
-
-
+            self.gzx = (msg.vgx*0.1 + self.gzx + msg.vgz*0.1*(self.gzx+self.gzy)/360) % 360
+            self.gzy = (msg.vgy*0.1 + self.gzy + msg.vgz*0.1*(self.gzy+self.gzx)/360) % 360       
+            self.gxy = (msg.vgz*0.1 + self.gxy) % 360
+        elif self.gxy > 90 and self.gxy < 270:
         
-
-
+        # Calcula acceleracio per gravetat
+        axp = math.cos(self.gzx*2*math.pi/360)*self.ap
+        ayp = math.cos(self.gzy*2*math.pi/360)*self.ap
+        azp = math.cos(self.gxy*2*math.pi/360)*self.ap
         
+        # Calcula velocitat i posicio
+        self.v = (msg.ax - axp)*0.1 + self.v
+        self.x = self.v*math.cos(self.gzx*2*math.pi/360)*0.1 + self.x
+        self.y = self.v*math.sin(self.gzx*2*math.pi/360)*0.1 + self.y
+        
+        # Publica resultat
+        output_msg = IMU_transformed()
+        output_msg.ax = msg.ax
+        output_msg.ay = msg.ay
+        output_msg.az = msg.az
+        output_msg.v = self.v
+        output_msg.x = self.x
+        output_msg.y = self.y
+        output_msg.gzx = self.gzx
+        output_msg.gzy = self.gzy
+        output_msg.gxy = self.gxy
+        
+        self.imu_publisher.publish(output_msg)
 
-
-        self.imu_publisher.publish(msg)
-                
 
 def main(args=None):
     try:
-
         rclpy.init(args=args)
         imu_suscriber = IMUSuscriber()
         rclpy.spin(imu_suscriber)
