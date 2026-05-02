@@ -10,6 +10,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/launch', ['launch/ldlidar_integration.launch.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -29,7 +30,8 @@ setup(
             'my_suscriber = my_pakage.suscriber:main',
             'simulated_sensor = my_pakage.simulated_sensors:main',
             'proximiti_direccion = my_pakage.proximiti_sensors.proximiti_direccion:main',
-            'imu_suscriber = my_pakage.EKF_slam.imu_suscriber:main'
+            'imu_suscriber = my_pakage.EKF_slam.imu_suscriber:main',
+            'ldlidar_listener = my_pakage.ldlidar_listener:main'
 
         ],
     },
