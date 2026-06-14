@@ -30,8 +30,11 @@ setup(
             'my_suscriber = my_pakage.suscriber:main',
             'simulated_sensor = my_pakage.simulated_sensors:main',
             'proximiti_direccion = my_pakage.proximiti_sensors.proximiti_direccion:main',
-            'imu_suscriber = my_pakage.EKF_slam.imu_suscriber:main',
-            'ldlidar_listener = my_pakage.ldlidar_listener:main'
+            'imu_suscriber = my_pakage.nodes.imu.imu_suscriber:main',
+            'lidar_suscriber = my_pakage.nodes.lidar.lidar_suscriber:main',
+            'lidar_angle_distance_publisher = my_pakage.nodes.lidar.lidar_angle_distance_publisher:main',
+            'ldlidar_listener = my_pakage.ldlidar_listener:main',
+            'lidar_processing = my_pakage.nodes.lidar.lidar_processing:main',
 
         ],
     },
