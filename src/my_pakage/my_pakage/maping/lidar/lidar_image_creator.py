@@ -20,14 +20,14 @@ class LidarAngleDistancePublisher(Node):
             self.pose_callback,
             10,
         )
-        self.pub = self.create_publisher(Float32MultiArray, '/ldlidar_node/scan_angle_distance', 10)
+        self.pub = self.create_publisher(Float32MultiArray, '/ldlidar_node/scan_xy', 10)
         self.robot_x = 0.0
         self.robot_y = 0.0
         self.robot_heading = 0.0
         self.robot_speed = 0.0
         self.robot_steering = 0.0
         self.wheelbase = 0.18
-        self.get_logger().info('Angle-distance publisher started, listening on /ldlidar_node/scan and publishing on each scan')
+        self.get_logger().info('Cartesian publisher started, listening on /ldlidar_node/scan and publishing Cartesian XY on /ldlidar_node/scan_xy')
 
     def pose_callback(self, msg: Float32MultiArray):
         if len(msg.data) < 5:

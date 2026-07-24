@@ -13,15 +13,7 @@ class SimulatedSensor(Node):
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
     def timer_callback(self):
-        # Genera valor aleatori entre 0 i 1
-        value = random.uniform(0, 1)
-        opposite_value = 1.0 - value  # Valor contrari
-
-        msg = Float32MultiArray()
-        msg.data = [value, opposite_value]
-        self.publisher.publish(msg)
-
-        self.get_logger().info(f"Proximity: {value:.3f}, Opposite: {opposite_value:.3f}")
+        #TODO: llegir el valor del sensor de proximitat i el seu contrari, i publicar-los en un missatge Float32MultiArray
 
 def main(args=None):
     try:
