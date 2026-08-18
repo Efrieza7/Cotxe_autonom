@@ -18,6 +18,8 @@ class LidarProcessing(Node):
     """
 
     def __init__(self):
+        self.pose = None
+        self.diference_list = []
         super().__init__('lidar_processing')
         self.subscription = self.create_subscription(
             Float32MultiArray,
@@ -25,11 +27,18 @@ class LidarProcessing(Node):
             self.listener_callback,
             10,
         )
-        self.pub_xy = self.create_publisher(Float32MultiArray, '/ldlidar_node/scan_xy', 10)
+        self.subscription = self.create_subscription(
+            Float32MultiArray,
+            '/bicycle_mode/pose',
+            self.pose_callback,
+            10)
+            
+            
+        self.pub_location_solved = self.create_publisher(Float32MultiArray, '/lidar_node/location_solved', 10)
         # publisher for clusters: interleaved [x, y, count]
-        self.pub_clusters = self.create_publisher(Float32MultiArray, '/ldlidar_node/scan_clusters', 10)
         # publisher for the global cons map so other nodes can subscribe
         self.pub_cons_map = self.create_publisher(ConsMap, '/ldlidar_node/cons_map', 10)
+        self.pub_error = self.create_publisher(Float32MultiArray,'/lidar_node/error',10)
         self.get_logger().info('LidarProcessing started: subscribing /ldlidar_node/scan_xy')
 
     def listener_callback(self, msg: Float32MultiArray):
@@ -64,17 +73,7 @@ class LidarProcessing(Node):
 
             clusters = [c for c in clusters if c['count'] >= 3]
 
-            out = Float32MultiArray()
-            out.data = xy
-            self.pub_xy.publish(out)
-
-            clusters_flat = []
-            for c in clusters:
-                clusters_flat.extend([float(c['x']), float(c['y']), float(c['count'])])
-            outc = Float32MultiArray()
-            outc.data = clusters_flat
-            self.pub_clusters.publish(outc)
-
+            diference_list = []
             merge_threshold = 0.2
             global cons
             for newc in clusters:
@@ -84,6 +83,7 @@ class LidarProcessing(Node):
                     ex_y = cons.data[i + 1]
                     ex_k = int(cons.data[i + 2])
                     if math.hypot(newc['x'] - ex_x, newc['y'] - ex_y) < merge_threshold:
+                        diference_list.append((newc['x'] - ex_x, newc['y'] - ex_y))
                         new_count = ex_k + newc['count']
                         cons.data[i] = (ex_x * ex_k + newc['x'] * newc['count']) / new_count
                         cons.data[i + 1] = (ex_y * ex_k + newc['y'] * newc['count']) / new_count
@@ -92,15 +92,67 @@ class LidarProcessing(Node):
                         break
                 if not merged:
                     cons.data.extend([float(newc['x']), float(newc['y']), float(newc['count'])])
-
+                total_x = 0.0
+                total_y = 0.0
             self.pub_cons_map.publish(cons)
+            
 
             pairs_out = len(clusters)
             self.get_logger().info(
                 f'Processed scan: pairs_in={pairs_in} pairs_out={pairs_out} cons_count={len(cons.data)//3}'
             )
+            self.diference_list = diference_list
+            if self.pose is not None:
+    
+                pose_x = float(self.pose[0])
+                pose_y = float(self.pose[1])
+
+                total_x = 0.0
+                total_y = 0.0
+
+                for dx, dy in self.diference_list:
+                    total_x += dx
+                    total_y += dy
+
+                if self.diference_list:
+                    error_x = total_x / len(self.diference_list)
+                    error_y = total_y / len(self.diference_list)
+                else:
+                    error_x = 0.0
+                    error_y = 0.0
+
+                location_solved = Float32MultiArray()
+
+                location_solved.data = [
+                    pose_x - error_x*0,5,
+                    pose_y - error_y*0,5,
+                    float(self.pose[2]),
+                    float(self.pose[3]),
+                    float(self.pose[4])
+                ]
+
+                self.pub_location_solved.publish(location_solved)
+
         except Exception as e:
+        
             self.get_logger().error(f'Error processing scan: {e}')
+            
+    def pose_callback(self, msg):
+        if len(msg.data) < 5:
+            self.get_logger().warning('Pose amb menys de 5 valors')
+            return
+
+        self.pose = list(msg.data)
+            
+            
+            
+            
+            
+            
+                
+                
+                
+            
 
 
 def main(args=None):
@@ -117,3 +169,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+   

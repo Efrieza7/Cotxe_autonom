@@ -38,6 +38,8 @@ setup(
             'lidar_processing = codi_principal.maping.lidar.lidar_processing:main',
             'bycicle_mode = codi_principal.location.Bycicle_mode.bycicle_mode:main',
             'cons_map_viz = codi_principal.maping.lidar.cons_map_viz:main',
+            'motor_reader = codi_principal.control.motor.motor_reader:main',
+            
 
         ],
     },
