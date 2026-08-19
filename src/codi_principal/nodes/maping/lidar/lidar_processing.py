@@ -4,6 +4,10 @@ from std_msgs.msg import Float32MultiArray
 from my_pakage_msgs.msg import ConsMap
 import math
 
+# Deixar aquesta variable a 0 fins a comprovar el funcionament del codi, en cas de ser necesari per 
+# reuir l'error del model matematic començar amb valors de 0.1 i no superar mai 1.
+diference_reductor = 0
+
 # Global persistent matrix of cones as a message instance
 # `cons` is a ConsMap() message; data is interleaved: [x,y,count, x,y,count, ...]
 cons = ConsMap()
@@ -124,8 +128,8 @@ class LidarProcessing(Node):
                 location_solved = Float32MultiArray()
 
                 location_solved.data = [
-                    pose_x - error_x*0,5,
-                    pose_y - error_y*0,5,
+                    pose_x - error_x*diference_reductor,
+                    pose_y - error_y*diference_reductor,
                     float(self.pose[2]),
                     float(self.pose[3]),
                     float(self.pose[4])
