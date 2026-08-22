@@ -4,20 +4,28 @@ Computes a centerline trajectory from unlabeled boundary/cone points,
 inspired by the approach in papalotis/ft-fsd-path-planning.
 
 No cone color information is required.  The algorithm:
-1. Builds a Delaunay triangulation of the cone positions.
-2. Extracts midpoints of triangle edges whose two endpoints belong to
-   opposite track boundaries (detected heuristically by proximity).
-3. Orders the midpoints to form a continuous centerline.
-4. Optionally smooths the result with a moving average.
+1. Groups cones into two sides using a geometric heuristic (perpendicular
+   deviation from the estimated track axis).
+2. Builds a Delaunay triangulation of all cone positions.
+3. Extracts midpoints of Delaunay edges that connect cones from opposite
+   sides (cross-boundary edges), filtered by length.
+4. Orders the midpoints using a direction-aware nearest-neighbour walk
+   that avoids sharp back-tracking.
+5. Smooths the result with a corner-preserving weighted moving average.
 
-Fallback: when fewer than 3 cones are available the function returns an
-empty list so the caller can apply a safe default (e.g. drive straight).
+Fallback: when fewer than 3 cones are available or the midpoint set is
+empty, a minimal straight-ahead path is synthesised from the mean cone
+position so the caller always receives actionable waypoints.
 """
 
 import math
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 Point = Tuple[float, float]
+
+# Minimum dot-product with the current heading for a candidate next point
+# to be accepted in the direction-aware walk (prevents U-turns).
+_MIN_DOT = -0.3
 
 
 # ---------------------------------------------------------------------------
@@ -47,25 +55,94 @@ def compute_centerline(
 
     Returns
     -------
-    List of (x, y) waypoints forming the centerline, possibly empty when
-    the input is degenerate.
+    List of (x, y) waypoints forming the centerline, never empty: when
+    the input is degenerate a short straight-ahead fallback path is
+    returned instead.
     """
     if len(cones) < 3:
-        return []
+        return _fallback_path(cones)
 
     try:
-        midpoints = _delaunay_midpoints(cones, min_edge_length, max_edge_length)
+        sides = _assign_sides(cones)
+        midpoints = _delaunay_midpoints(cones, sides, min_edge_length, max_edge_length)
     except Exception:
-        return []
+        midpoints = []
 
     if not midpoints:
-        return []
+        return _fallback_path(cones)
 
-    ordered = _order_points(midpoints)
+    ordered = _order_points_directed(midpoints)
     if smooth_window > 1 and len(ordered) >= smooth_window:
-        ordered = _smooth(ordered, smooth_window)
+        ordered = _smooth_weighted(ordered, smooth_window)
 
     return ordered
+
+
+# ---------------------------------------------------------------------------
+# Fallback path generator
+# ---------------------------------------------------------------------------
+
+def _fallback_path(cones: List[Point]) -> List[Point]:
+    """Return a minimal straight-ahead path usable when cones are sparse.
+
+    If cones are available their centroid is used as the starting point;
+    otherwise the origin is used.  Two waypoints are returned so downstream
+    controllers always have a valid heading.
+    """
+    if cones:
+        cx = sum(p[0] for p in cones) / len(cones)
+        cy = sum(p[1] for p in cones) / len(cones)
+    else:
+        cx, cy = 0.0, 0.0
+    # Two waypoints pointing in the +x direction (straight ahead).
+    return [(cx, cy), (cx + 1.0, cy)]
+
+
+# ---------------------------------------------------------------------------
+# Side-grouping heuristic
+# ---------------------------------------------------------------------------
+
+def _assign_sides(cones: List[Point]) -> List[int]:
+    """Assign each cone to side 0 or 1 using a perpendicular-deviation heuristic.
+
+    The method estimates the track axis by fitting a line through the cone
+    cloud (via principal component analysis on the 2-D point set), then
+    labels each cone by the sign of its signed distance from that axis.
+
+    Returns
+    -------
+    List of ints (0 or 1) with the same length as *cones*.
+    """
+    n = len(cones)
+    cx = sum(p[0] for p in cones) / n
+    cy = sum(p[1] for p in cones) / n
+
+    # 2×2 covariance matrix entries
+    sxx = sum((p[0] - cx) ** 2 for p in cones)
+    sxy = sum((p[0] - cx) * (p[1] - cy) for p in cones)
+    syy = sum((p[1] - cy) ** 2 for p in cones)
+
+    # Largest eigenvector of [[sxx, sxy],[sxy, syy]] → track axis direction
+    # Power-iteration style: start with a guess and refine once.
+    if abs(sxy) < 1e-10:
+        # Axis-aligned: pick the dimension with more spread
+        ax, ay = (1.0, 0.0) if sxx >= syy else (0.0, 1.0)
+    else:
+        # Dominant eigenvector of 2×2 symmetric matrix
+        diff = sxx - syy
+        lam = (sxx + syy + math.sqrt(diff ** 2 + 4 * sxy ** 2)) / 2.0
+        ax, ay = lam - syy, sxy  # unnormalised
+        norm = math.hypot(ax, ay) or 1.0
+        ax, ay = ax / norm, ay / norm
+
+    # Perpendicular to the axis (rotated 90°)
+    nx, ny = -ay, ax  # normal vector
+
+    sides: List[int] = []
+    for p in cones:
+        dot = (p[0] - cx) * nx + (p[1] - cy) * ny
+        sides.append(0 if dot >= 0 else 1)
+    return sides
 
 
 # ---------------------------------------------------------------------------
@@ -74,10 +151,15 @@ def compute_centerline(
 
 def _delaunay_midpoints(
     points: List[Point],
+    sides: List[int],
     min_len: float,
     max_len: float,
 ) -> List[Point]:
     """Return midpoints of Delaunay edges that cross the track boundary.
+
+    Only edges connecting cones from *opposite* sides are considered, so
+    the midpoints sit on the centerline rather than along one boundary.
+    Side labels come from :func:`_assign_sides`.
 
     We use a simple Bowyer–Watson Delaunay triangulation implemented in
     pure Python so that no external C libraries are required.
@@ -93,6 +175,9 @@ def _delaunay_midpoints(
             if key in seen:
                 continue
             seen.add(key)
+            # Only keep cross-boundary edges
+            if sides[p] == sides[q]:
+                continue
             px, py = points[p]
             qx, qy = points[q]
             length = math.hypot(px - qx, py - qy)
@@ -189,45 +274,96 @@ def _in_circumcircle(
 
 
 # ---------------------------------------------------------------------------
-# Nearest-neighbour ordering
+# Direction-aware nearest-neighbour ordering
 # ---------------------------------------------------------------------------
 
-def _order_points(points: List[Point]) -> List[Point]:
-    """Order *points* into a path using a greedy nearest-neighbour heuristic.
+def _order_points_directed(points: List[Point]) -> List[Point]:
+    """Order *points* into a path using a direction-aware nearest-neighbour walk.
 
-    Starts from the point with the smallest x coordinate (roughly the
-    'entry' of the track when the car drives left-to-right).
+    Unlike a pure greedy nearest-neighbour search this variant rejects
+    candidate points that would require a sharp reversal of heading.  This
+    prevents the path from folding back on itself at hairpins or when
+    midpoints cluster near the apex of a tight turn.
+
+    Starts from the point with the smallest x coordinate (approximately
+    the track entry when the car drives in the +x direction).
     """
     if not points:
         return []
     remaining = list(points)
-    # Start from leftmost point
     start = min(range(len(remaining)), key=lambda i: remaining[i][0])
     ordered = [remaining.pop(start)]
 
+    # Initial heading: +x direction
+    hdx, hdy = 1.0, 0.0
+
     while remaining:
         last = ordered[-1]
-        nearest = min(range(len(remaining)),
-                      key=lambda i: math.hypot(remaining[i][0] - last[0],
-                                               remaining[i][1] - last[1]))
-        ordered.append(remaining.pop(nearest))
+        best_idx: Optional[int] = None
+        best_dist = math.inf
+
+        for i, pt in enumerate(remaining):
+            dx = pt[0] - last[0]
+            dy = pt[1] - last[1]
+            dist = math.hypot(dx, dy)
+            if dist < 1e-9:
+                continue
+            # Normalised dot product with current heading
+            dot = (dx * hdx + dy * hdy) / dist
+            if dot < _MIN_DOT:
+                continue  # would require a near-reversal
+            if dist < best_dist:
+                best_dist = dist
+                best_idx = i
+
+        if best_idx is None:
+            # All remaining candidates would require a reversal;
+            # fall back to pure nearest-neighbour for the rest.
+            best_idx = min(range(len(remaining)),
+                           key=lambda i: math.hypot(remaining[i][0] - last[0],
+                                                    remaining[i][1] - last[1]))
+
+        nxt = remaining.pop(best_idx)
+        dx = nxt[0] - ordered[-1][0]
+        dy = nxt[1] - ordered[-1][1]
+        norm = math.hypot(dx, dy) or 1.0
+        hdx, hdy = dx / norm, dy / norm
+        ordered.append(nxt)
 
     return ordered
 
 
+# Keep the old name as an alias for backward compatibility and tests.
+_order_points = _order_points_directed
+
+
 # ---------------------------------------------------------------------------
-# Moving-average smoothing
+# Corner-preserving weighted moving-average smoothing
 # ---------------------------------------------------------------------------
 
-def _smooth(points: List[Point], window: int) -> List[Point]:
-    """Apply a symmetric moving-average filter to the point sequence."""
+def _smooth_weighted(points: List[Point], window: int) -> List[Point]:
+    """Apply a corner-preserving weighted moving-average filter.
+
+    Weights decrease toward the edges of the window so interior points
+    (away from corners) are smoothed more strongly than endpoints.  This
+    avoids the excessive corner-cutting produced by a flat moving average.
+    """
     half = window // 2
     result: List[Point] = []
     n = len(points)
     for i in range(n):
         lo = max(0, i - half)
         hi = min(n, i + half + 1)
-        xs = [p[0] for p in points[lo:hi]]
-        ys = [p[1] for p in points[lo:hi]]
-        result.append((sum(xs) / len(xs), sum(ys) / len(ys)))
+        # Triangular weights peaking at the centre of the window
+        weights = [1.0 + half - abs(j - i) for j in range(lo, hi)]
+        total = sum(weights)
+        xs = [points[j][0] * w for j, w in zip(range(lo, hi), weights)]
+        ys = [points[j][1] * w for j, w in zip(range(lo, hi), weights)]
+        result.append((sum(xs) / total, sum(ys) / total))
     return result
+
+
+# Keep the old name as an alias for backward compatibility and tests.
+def _smooth(points: List[Point], window: int) -> List[Point]:
+    """Alias for :func:`_smooth_weighted` (kept for backward compatibility)."""
+    return _smooth_weighted(points, window)

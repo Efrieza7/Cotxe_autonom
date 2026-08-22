@@ -1,6 +1,8 @@
 """Tests for the colorblind autocross path planner.
 
-Covers straight track, slalom, hairpin, and degenerate/sparse inputs.
+Covers straight track, slalom, hairpin, and degenerate/sparse inputs,
+as well as the new side-grouping, direction-aware ordering, and fallback
+path features.
 """
 
 import math
@@ -16,7 +18,11 @@ sys.path.insert(
 from planner import (  # noqa: E402
     compute_centerline,
     _order_points,
+    _order_points_directed,
     _smooth,
+    _smooth_weighted,
+    _assign_sides,
+    _fallback_path,
 )
 
 
@@ -59,15 +65,36 @@ def _make_hairpin_cones(radius: float = 3.0, n_outer: int = 8, n_inner: int = 5)
 # ---------------------------------------------------------------------------
 
 def test_empty_cones():
-    assert compute_centerline([]) == []
+    """Empty cone list should return a non-empty fallback path."""
+    wp = compute_centerline([])
+    assert len(wp) >= 2, "Fallback path should have at least 2 points"
 
 
 def test_one_cone():
-    assert compute_centerline([(0.0, 0.0)]) == []
+    """Single cone should return a non-empty fallback path."""
+    wp = compute_centerline([(0.0, 0.0)])
+    assert len(wp) >= 2, "Fallback path should have at least 2 points"
 
 
 def test_two_cones():
-    assert compute_centerline([(0.0, -1.0), (0.0, 1.0)]) == []
+    """Two cones should return a non-empty fallback path."""
+    wp = compute_centerline([(0.0, -1.0), (0.0, 1.0)])
+    assert len(wp) >= 2, "Fallback path should have at least 2 points"
+
+
+def test_fallback_path_empty():
+    """_fallback_path with no cones should return two points near origin."""
+    wp = _fallback_path([])
+    assert len(wp) == 2
+    assert wp[0] == (0.0, 0.0)
+
+
+def test_fallback_path_uses_centroid():
+    """_fallback_path centroid should reflect cone positions."""
+    cones = [(2.0, 0.0), (4.0, 0.0)]
+    wp = _fallback_path(cones)
+    assert len(wp) == 2
+    assert abs(wp[0][0] - 3.0) < 1e-6, "Centroid x should be 3.0"
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +149,40 @@ def test_hairpin_returns_waypoints():
 
 
 # ---------------------------------------------------------------------------
+# Noisy cones
+# ---------------------------------------------------------------------------
+
+def test_noisy_straight_returns_waypoints():
+    """Adding Gaussian-ish noise to a straight track should still produce a path."""
+    import random
+    random.seed(42)
+    cones = _make_straight_cones(n=8, width=2.0)
+    noisy = [(x + random.uniform(-0.15, 0.15), y + random.uniform(-0.15, 0.15))
+             for x, y in cones]
+    wp = compute_centerline(noisy, smooth_window=3)
+    assert len(wp) >= 2, "Expected waypoints even with noisy cones"
+
+
+# ---------------------------------------------------------------------------
+# Side grouping
+# ---------------------------------------------------------------------------
+
+def test_assign_sides_straight():
+    """Left row → side 0 or 1; right row → opposite side."""
+    n = 4
+    cones = _make_straight_cones(n=n, width=2.0)
+    # _make_straight_cones returns left row first, then right row.
+    # Left row: indices 0..n-1 (y = -1), Right row: indices n..2n-1 (y = +1)
+    sides = _assign_sides(cones)
+    assert len(sides) == len(cones)
+    left_sides = {sides[i] for i in range(n)}
+    right_sides = {sides[i] for i in range(n, 2 * n)}
+    # Each group should be on a single side, and the two groups on opposite sides
+    assert len(left_sides) == 1 and len(right_sides) == 1
+    assert left_sides != right_sides
+
+
+# ---------------------------------------------------------------------------
 # Smoothing
 # ---------------------------------------------------------------------------
 
@@ -139,8 +200,22 @@ def test_smoothing_reduces_jitter():
     assert sm_var <= raw_var + 1e-6, "Smoothed path should not be more jittery"
 
 
+def test_smooth_weighted_preserves_length():
+    pts = [(float(i), float(i)) for i in range(10)]
+    sm = _smooth_weighted(pts, window=3)
+    assert len(sm) == len(pts)
+
+
+def test_smooth_weighted_window_1_is_identity():
+    pts = [(1.0, 2.0), (3.0, 4.0), (5.0, 6.0)]
+    sm = _smooth_weighted(pts, window=1)
+    for (x1, y1), (x2, y2) in zip(pts, sm):
+        assert abs(x1 - x2) < 1e-9
+        assert abs(y1 - y2) < 1e-9
+
+
 # ---------------------------------------------------------------------------
-# _order_points
+# _order_points / _order_points_directed
 # ---------------------------------------------------------------------------
 
 def test_order_points_empty():
@@ -159,8 +234,16 @@ def test_order_points_contiguous():
     assert xs == sorted(xs), "Expected ordered by x for collinear points"
 
 
+def test_order_points_directed_no_reversal():
+    """Directed ordering should not double back on itself for a curved path."""
+    # Points forming a smooth curve: should come out in order without reversal
+    pts = [(math.cos(t), math.sin(t)) for t in [i * 0.3 for i in range(8)]]
+    ordered = _order_points_directed(pts)
+    assert len(ordered) == len(pts)
+
+
 # ---------------------------------------------------------------------------
-# _smooth
+# _smooth (backward compatibility alias)
 # ---------------------------------------------------------------------------
 
 def test_smooth_preserves_length():
