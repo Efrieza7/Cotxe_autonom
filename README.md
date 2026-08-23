@@ -12,40 +12,43 @@ source install/setup.bash
 
 ```
 
-## Path Planning — algorisme colorblind d'autocross
+## Path Planning — bridge amb `ft-fsd-path-planning`
 
-Implementació d'un planificador de ruta sense necessitat de conèixer el color dels cons,
-inspirat en [papalotis/ft-fsd-path-planning](https://github.com/papalotis/ft-fsd-path-planning).
+El node de path planning fa de pont entre els tòpics reals del projecte i
+`ft-fsd-path-planning-main`, assumint cons **sense color**.
 
 ### Com funciona
 
-1. El node `lidar_processing` publica els cons detectats al tòpic `/ldlidar_node/cons_map`
-   com a `ConsMap` (interleaved `[x, y, count, ...]`).
-2. El node `path_planning` subscriu aquest tòpic, construeix una triangulació de Delaunay
-   dels cons i extreu els punts mig de les arestes que creuen el límit de pista.
-3. Els punts s'ordenen amb un heurístic de veí més proper i s'aplica un suavitzat
-   per finestra mòbil.
-4. El resultat es publica com a `Float32MultiArray` a `/path_planning/waypoints`
-   (interleaved `[x0, y0, x1, y1, ...]`).
+1. `lidar_processing` publica els cons a `/ldlidar_node/cons_map` (`my_pakage_msgs/ConsMap`)
+   amb format `[x, y, count, ...]`.
+2. `path_planning` llegeix també la pose del vehicle a `/pose` (`Float32MultiArray`,
+   format mínim `[x, y, yaw, ...]`).
+3. El bridge converteix tots els cons a `ConeTypes.UNKNOWN` i executa:
+   `PathPlanner.calculate_path_in_global_frame(...)`.
+4. El resultat es publica a `/path_planning/waypoints` (`Float32MultiArray`,
+   `[x0, y0, x1, y1, ...]`).
 
 ### Iniciar el node
 
 ```bash
-ros2 run codi_principal path_planning
+ros2 run my_pakage path_planning
 ```
 
 ### Paràmetres configurables
 
-| Paràmetre        | Tipus  | Valor per defecte | Descripció                                    |
-|------------------|--------|-------------------|-----------------------------------------------|
-| `smooth_window`  | int    | 3                 | Mida de la finestra del suavitzat             |
-| `min_edge_length`| float  | 0.3               | Longitud mínima d'aresta Delaunay (m)         |
-| `max_edge_length`| float  | 6.0               | Longitud màxima d'aresta Delaunay (m)         |
-| `min_cone_count` | int    | 2                 | Observacions mínimes per acceptar un con      |
+| Paràmetre | Tipus | Valor per defecte | Descripció |
+|---|---|---|---|
+| `cones_topic` | string | `/ldlidar_node/cons_map` | Tòpic de cons `ConsMap` |
+| `pose_topic` | string | `/pose` | Tòpic de pose `[x,y,yaw,...]` |
+| `path_topic` | string | `/path_planning/waypoints` | Tòpic de sortida de waypoints |
+| `mission` | string | `trackdrive` | Missió del `PathPlanner` |
+| `experimental_performance_improvements` | bool | `false` | Flag intern del planner |
+| `min_cone_count` | int | `1` | Mínim `count` per con útil |
+| `timer_period_sec` | float | `0.1` | Període de planificació |
 
 ```bash
-ros2 run codi_principal path_planning \
-  --ros-args -p smooth_window:=5 -p max_edge_length:=4.0
+ros2 run my_pakage path_planning \
+  --ros-args -p mission:=autocross -p min_cone_count:=2
 ```
 
 ### Executar els tests
@@ -59,9 +62,9 @@ python -m pytest test/test_path_planning.py -v
 
 ```
 src/codi_principal/nodes/path_planning/
-    __init__.py      # marcador de paquet
-    planner.py       # algoritme pur (sense ROS): compute_centerline()
-    ros_node.py      # node ROS 2: PathPlanningNode
+    path_planner_bridge_node.py   # node ROS 2 bridge amb fsd_path_planning
+    bridge_utils.py               # conversió de ConsMap i sortida del planner
+    ft-fsd-path-planning-main/    # llibreria de path planning integrada
 src/codi_principal/test/
     test_path_planning.py   # tests: recta, slalom, horquilla, degenerat
 ```
