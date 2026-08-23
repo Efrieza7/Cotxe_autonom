@@ -7,7 +7,7 @@ def generate_launch_description():
         [
             Node(
                 package="my_pakage",
-                executable="path_planning",
+                executable="path_planner_bridge",
                 name="path_planner_bridge",
                 output="screen",
                 parameters=[

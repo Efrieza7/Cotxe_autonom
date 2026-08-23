@@ -51,10 +51,11 @@ def extract_xy_path(planner_result) -> np.ndarray | None:
     if array.ndim != 2 or len(array) == 0:
         return None
 
-    # fsd_path_planning returns [s, x, y, curvature]
+    # fsd_path_planning returns [s, x, y, curvature].
+    # Keep a strict branch for Nx2 arrays so the intent is explicit.
     if array.shape[1] >= 3:
         path_xy = array[:, 1:3]
-    elif array.shape[1] >= 2:
+    elif array.shape[1] == 2:
         path_xy = array[:, :2]
     else:
         return None
