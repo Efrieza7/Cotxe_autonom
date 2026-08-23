@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'codi_principal'
+package_name = 'my_pakage'
 
 setup(
     name=package_name,
@@ -10,7 +10,14 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/launch', ['launch/ldlidar_integration.launch.py']),
+        (
+            'share/' + package_name + '/launch',
+            [
+                'launch/ldlidar_integration.launch.py',
+                'launch/proximiti_control.launch.py',
+                'launch/path_planner_bridge.launch.py',
+            ],
+        ),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -39,7 +46,8 @@ setup(
             'bycicle_mode = codi_principal.location.Bycicle_mode.bycicle_mode:main',
             'cons_map_viz = codi_principal.maping.lidar.cons_map_viz:main',
             'motor_reader = codi_principal.control.motor.motor_reader:main',
-            'path_planning = codi_principal.path_planning.ros_node:main',
+            'path_planning = nodes.path_planning.path_planner_bridge_node:main',
+            'path_planner_bridge = nodes.path_planning.path_planner_bridge_node:main',
 
         ],
     },
