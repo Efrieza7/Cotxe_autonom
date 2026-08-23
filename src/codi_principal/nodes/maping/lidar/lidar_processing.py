@@ -25,6 +25,7 @@ class LidarProcessing(Node):
         self.pose = None
         self.diference_list = []
         super().__init__('lidar_processing')
+        
         self.subscription = self.create_subscription(
             Float32MultiArray,
             '/ldlidar_node/scan_xy',

@@ -38,7 +38,7 @@ ros2 run my_pakage path_planning
 
 | Paràmetre | Tipus | Valor per defecte | Descripció |
 |---|---|---|---|
-| `cones_topic` | string | `/ldlidar_node/cons_map` | Tòpic de cons `ConsMap` |
+| `map_topic` | string | `/ldlidar_node/cons_map` | Tòpic de cons `ConsMap` |
 | `pose_topic` | string | `/pose` | Tòpic de pose `[x,y,yaw,...]` |
 | `path_topic` | string | `/path_planning/waypoints` | Tòpic de sortida de waypoints |
 | `mission` | string | `trackdrive` | Missió del `PathPlanner` |

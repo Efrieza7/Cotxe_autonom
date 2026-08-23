@@ -31,7 +31,7 @@ class PathPlannerBridgeNode(Node):
     def __init__(self) -> None:
         super().__init__("path_planner_bridge")
 
-        self.declare_parameter("cones_topic", "/ldlidar_node/cons_map")
+        self.declare_parameter("map_topic", "/ldlidar_node/cons_map")
         self.declare_parameter("pose_topic", "/pose")
         self.declare_parameter("path_topic", "/path_planning/waypoints")
         self.declare_parameter("mission", "trackdrive")
@@ -39,7 +39,7 @@ class PathPlannerBridgeNode(Node):
         self.declare_parameter("min_cone_count", 1)
         self.declare_parameter("timer_period_sec", 0.1)
 
-        self.cones_topic = self.get_parameter("cones_topic").value
+        self.map_topic = self.get_parameter("map_topic").value
         self.pose_topic = self.get_parameter("pose_topic").value
         self.path_topic = self.get_parameter("path_topic").value
         self.min_cone_count = int(self.get_parameter("min_cone_count").value)
@@ -55,10 +55,10 @@ class PathPlannerBridgeNode(Node):
         )
 
         self.pose_sub = self.create_subscription(
-            Float32MultiArray, self.pose_topic, self._pose_cb, 10
+            Float32MultiArray, self.pose_topic, self.pose_callback, 10
         )
         self.cones_sub = self.create_subscription(
-            ConsMap, self.cones_topic, self._cones_cb, 10
+            ConsMap, self.map_topic, self.map_callback, 10
         )
         self.path_pub = self.create_publisher(Float32MultiArray, self.path_topic, 10)
 
@@ -71,7 +71,7 @@ class PathPlannerBridgeNode(Node):
         self.create_timer(max(0.02, timer_period), self._tick)
         self.get_logger().info(
             "Path planner bridge started. "
-            f"cones={self.cones_topic} pose={self.pose_topic} path={self.path_topic}"
+            f"cones={self.map_topic} pose={self.pose_topic} path={self.path_topic}"
         )
 
     def _mission_from_param(self, mission_str: str) -> MissionTypes:
@@ -90,7 +90,7 @@ class PathPlannerBridgeNode(Node):
             return MissionTypes.trackdrive
         return mission
 
-    def _pose_cb(self, msg: Float32MultiArray) -> None:
+    def pose_callback(self, msg: Float32MultiArray) -> None:
         if len(msg.data) < 3:
             self.get_logger().warning(
                 "Pose message must contain at least [x, y, yaw]; ignoring."
@@ -113,7 +113,7 @@ class PathPlannerBridgeNode(Node):
         self.last_dir_xy = np.asarray([math.cos(yaw), math.sin(yaw)], dtype=np.float64)
         self.has_new_inputs = True
 
-    def _cones_cb(self, msg: ConsMap) -> None:
+    def map_callback(self, msg: ConsMap) -> None:
         self.last_cones = build_unknown_cone_observations(
             cons_data=msg.data,
             cone_types_count=len(ConeTypes),

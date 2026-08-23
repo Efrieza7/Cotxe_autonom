@@ -12,7 +12,7 @@ def generate_launch_description():
                 output="screen",
                 parameters=[
                     {
-                        "cones_topic": "/ldlidar_node/cons_map",
+                        "map_topic": "/ldlidar_node/cons_map",
                         "pose_topic": "/pose",
                         "path_topic": "/path_planning/waypoints",
                         "mission": "trackdrive",
