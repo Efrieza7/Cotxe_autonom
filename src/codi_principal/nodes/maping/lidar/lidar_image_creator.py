@@ -1,7 +1,7 @@
 
 import rclpy
 from rclpy.node import Node
-
+from std_msgs.msg import Float32
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32MultiArray
 
@@ -44,6 +44,12 @@ class LidarAngleDistancePublisher(Node):
             '/ldlidar_node/scan_xy',
             10
         )
+        self.servo_command_subscription = self.create_subscription(
+            Float32,
+            'servo_command',
+            self.servo_command_callback,
+            10
+        )
 
         # --------------------------------------------------
         # Estat del robot
@@ -65,6 +71,9 @@ class LidarAngleDistancePublisher(Node):
             'Waiting for /bicycle_mode/pose'
         )
 
+    def servo_command_callback(self, msg: Float32):
+        """Callback per rebre dades del servo."""
+        self.robot_steering = msg.data
     # ======================================================
     # CALLBACK DE LOCALITZACIÓ
     # ======================================================

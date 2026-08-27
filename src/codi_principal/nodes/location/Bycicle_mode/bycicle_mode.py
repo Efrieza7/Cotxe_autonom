@@ -34,6 +34,12 @@ class BicycleLocation(Node):
             self.encoder_callback,
             10
         )
+        self.servo_command_subscription = self.create_subscription(
+            Float32,
+            'servo_command',
+            self.servo_command_callback,
+            10
+        )
 
         # Publicador per a la posició calculada
         self.pose_publisher = self.create_publisher(Float32MultiArray, 'pose', 10)
@@ -62,6 +68,10 @@ class BicycleLocation(Node):
         """Callback per rebre dades de l'encoder."""
         self.encoder_data = msg.data
         self.update_motor_speed()
+
+    def servo_command_callback(self, msg):
+        """Callback per rebre dades del servo."""
+        self.direccio_rodes = msg.data
 
     def update_motor_speed(self):
         """Calcula la mitjana entre les dades de l'IMU i l'encoder."""

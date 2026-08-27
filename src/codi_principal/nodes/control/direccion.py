@@ -19,7 +19,8 @@ class Direccion(Node):
         super().__init__('direccion')
 
         # ROS interfaces
-        self.sub = self.create_subscription(Float32, 'target_angle', self.cb_target, 10)
+        self.sub = self.create_subscription(Float32, 'target_angle', self.callback_target, 10)
+        self.sub = self.create_subscription(Float32, 'ldlidar_node/LaserScan', self.callback_lidar, 10)
         self.pub = self.create_publisher(Float32, 'servo_command', 10)
 
         # Parameters
@@ -53,10 +54,12 @@ class Direccion(Node):
     def map_to_normalized(self, angle_rad: float) -> float:
         a = self.clamp(angle_rad, self.min_angle, self.max_angle)
         return (a - self.min_angle) / (self.max_angle - self.min_angle) if (self.max_angle - self.min_angle) != 0 else 0.5
+    def callback_target(self, msg: Float32) -> None:
+        self.angle = float(msg.data)
 
-    def cb_target(self, msg: Float32) -> None:
+    def callback_lidar(self, msg: Float32) -> None:
         # Read input angle
-        angle = float(msg.data)
+        angle = self.angle
 
         # Convert degrees->radians if needed
         if self.input_is_degrees:
