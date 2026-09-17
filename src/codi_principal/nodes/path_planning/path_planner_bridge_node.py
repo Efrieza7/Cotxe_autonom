@@ -148,13 +148,13 @@ class PathPlannerBridgeNode(Node):
             self.get_logger().error(f"Path planner failed: {exc}")
             return
 
-        path_xy = extract_xy_path(planner_result)
-        if path_xy is None or len(path_xy) == 0:
+        
+        if planner_result is None or len(planner_result) == 0:
             self.get_logger().warning("Planner returned malformed/empty path output.")
             self.path_pub.publish(Float32MultiArray(data=[]))
             return
 
-        flattened = [float(v) for point in path_xy for v in point]
+        flattened = [float(v) for point in planner_result for v in point]
         self.path_pub.publish(Float32MultiArray(data=flattened))
 
 
