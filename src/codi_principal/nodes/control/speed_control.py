@@ -72,7 +72,7 @@ class MyNode(Node):
         self.last_ticks = 0
 
         # timer ROS2
-        self.timer = self.create_timer(0.5, self.timer_callback)
+        self.timer = self.create_timer(0.1, self.timer_callback)
 
         self.get_logger().info("Motor node iniciat")
 
