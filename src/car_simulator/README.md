@@ -16,6 +16,11 @@ Simulador per RViz per provar el `codi_principal` sense cotxe real:
   de posició.
 - **Path**: visualitza `/path_planning/waypoints` com a `nav_msgs/Path` i
   `Marker` (línia verda) a `/simulator/path` / `/simulator/path_markers`.
+- **Control**: el simulador NO decideix ni direcció ni velocitat. Només
+  integra cinemàticament `/target_angle` i `/target_speed`, que ara publica
+  `path_follower` (pure pursuit, dins `codi_principal`) a partir del path
+  planificat i la pose. Com menys lògica de conducció hi hagi al simulador,
+  més realista és la sortida.
 
 ## Canviar de mapa
 
@@ -50,9 +55,14 @@ ros2 launch car_simulator car_simulator.launch.py
 # 2) Codi principal (my_pakage): mapeig, SENSE bycicle_mode ni nodes de hardware
 ros2 launch my_pakage simulation_mapping.launch.py
 
-# 3) Codi principal (my_pakage): planificació de trajectòria
+# 3) Codi principal (my_pakage): planificació de trajectòria + seguiment (pure pursuit)
 ros2 launch my_pakage path_planner_bridge.launch.py
 ```
+
+El launcher (3) arrenca tant `path_planner_bridge` com `path_follower`: aquest
+últim és qui calcula `/target_angle` i `/target_speed` a partir del path i la
+pose, i és qui fa moure realment el cotxe simulat. Sense aquest launcher el
+cotxe es queda quiet (`speed_mps` per defecte és `0.0`).
 
 Paràmetres opcionals del simulador:
 
@@ -62,18 +72,10 @@ ros2 launch car_simulator car_simulator.launch.py map_file:=/ruta/al/meu_mapa.ya
 
 **No llencis** `proximiti_control.launch.py` ni `ldlidar_integration.launch.py`
 en simulació: arrenquen `bycicle_mode` i nodes de hardware real (servo, motor,
-driver del LiDAR físic). `bycicle_mode` publicaria al mateix `/pose` i
-`/bicycle_mode/pose` que ja genera `car_simulator_node` (ground truth), i
-entrarien en conflicte.
-
-El primer launcher arrenca: `robot_state_publisher`, `car_simulator_node`,
-`lidar_simulator_node`, `cone_map_publisher_node`, `path_visualizer_node` i
-`rviz2` (amb `rviz/car_simulator.rviz`).
-
-Per fer que el cotxe giri, publica un angle (rad) a `/target_angle`
-(`std_msgs/Float32`) — el mateix tòpic que consumeix el node `direccion` real.
-La velocitat es pot canviar publicant a `/simulator/speed_cmd`
-(`std_msgs/Float32`).
+driver del LiDAR físic, `proximiti_direccion`). `bycicle_mode` publicaria al
+mateix `/pose` i `/bicycle_mode/pose` que ja genera `car_simulator_node`
+(ground truth), i `proximiti_direccion` publicaria un `/target_angle` en
+conflicte amb el de `path_follower`.
 
 ## Per què cal el desplaçament dels punts
 

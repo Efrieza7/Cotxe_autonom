@@ -39,6 +39,7 @@ setup(
             'proximiti_direccion = codi_principal.control.proximiti_sesors.proximiti_direccion:main',
             'proximiti_reader = codi_principal.control.proximiti_sesors.proximiti_reader:main',
             'direccion = codi_principal.control.direccion:main',
+            'path_follower = codi_principal.control.path_follower:main',
             'imu_suscriber = codi_principal.location.imu.imu_suscriber:main',
             'lidar_suscriber = codi_principal.maping.lidar.lidar_suscriber:main',
             'lidar_image_creator = codi_principal.maping.lidar.lidar_image_creator:main',

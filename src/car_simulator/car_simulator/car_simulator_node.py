@@ -3,6 +3,12 @@
 Publishes the same message formats the real stack uses (`/pose` and
 `/bicycle_mode/pose`, both `Float32MultiArray` = [x, y, yaw, v, steer]) and
 broadcasts the `map -> base_link` TF so the car model shows up in RViz.
+
+Steering and speed are NOT decided here: `codi_principal`'s `path_follower`
+node (pure pursuit over `/path_planning/waypoints`) publishes `/target_angle`
+and `/target_speed`, which this node just integrates kinematically. The
+simulator stays a physics/sensor stand-in only; all driving logic lives in
+the main code, same as it would with the real car.
 """
 
 from __future__ import annotations
@@ -23,7 +29,7 @@ class CarSimulatorNode(Node):
 
         self.declare_parameter('wheelbase', 0.40)
         self.declare_parameter('track', 0.25)
-        self.declare_parameter('speed_mps', 0.8)
+        self.declare_parameter('speed_mps', 0.0)
         self.declare_parameter('update_rate_hz', 50.0)
         self.declare_parameter('start_x', 0.0)
         self.declare_parameter('start_y', 0.0)
@@ -31,7 +37,7 @@ class CarSimulatorNode(Node):
         self.declare_parameter('pose_topic', '/pose')
         self.declare_parameter('bicycle_pose_topic', '/bicycle_mode/pose')
         self.declare_parameter('steering_topic', '/target_angle')
-        self.declare_parameter('speed_topic', '/simulator/speed_cmd')
+        self.declare_parameter('speed_topic', '/target_speed')
         self.declare_parameter('map_frame', 'map')
         self.declare_parameter('base_frame', 'base_link')
 
@@ -65,7 +71,7 @@ class CarSimulatorNode(Node):
 
         self.get_logger().info(
             f'Car simulator started: wheelbase={self.wheelbase} speed={self.speed} '
-            f'steering_topic={steering_topic}'
+            f'steering_topic={steering_topic} speed_topic={speed_topic}'
         )
 
     def _steering_cb(self, msg: Float32) -> None:

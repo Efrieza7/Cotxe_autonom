@@ -27,8 +27,9 @@ def generate_launch_description():
                                description='Path to the cone map YAML file'),
         DeclareLaunchArgument('max_range', default_value='2.0',
                                description='Max LiDAR detection range (m)'),
-        DeclareLaunchArgument('speed_mps', default_value='0.8',
-                               description='Simulated car forward speed (m/s)'),
+        DeclareLaunchArgument('speed_mps', default_value='0.0',
+                               description='Initial speed (m/s), overridden as soon as '
+                                            'codi_principal\'s path_follower publishes /target_speed'),
         DeclareLaunchArgument('use_rviz', default_value='true'),
 
         Node(

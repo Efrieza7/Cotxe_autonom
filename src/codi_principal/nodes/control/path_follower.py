@@ -79,10 +79,10 @@ class PathFollower(Node):
                     x = float(data[i])
                     y = float(data[i+1])
                 pts.append((x, y))
-        control_loop(self)
 
         self.path = pts
         self.have_path = len(self.path) > 0
+        self.control_loop()
 
     def pose_callback(self, msg: Float32MultiArray):
         if len(msg.data) < 3:
@@ -95,6 +95,7 @@ class PathFollower(Node):
             return
         self.pose = (x, y, yaw)
         self.have_pose = True
+        self.control_loop()
 
     def find_lookahead_point(self, x: float, y: float) -> Tuple[float, float] | None:
         if not self.path:
