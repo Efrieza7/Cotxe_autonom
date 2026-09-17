@@ -16,6 +16,7 @@ setup(
                 'launch/ldlidar_integration.launch.py',
                 'launch/proximiti_control.launch.py',
                 'launch/path_planner_bridge.launch.py',
+                'launch/simulation_mapping.launch.py',
             ],
         ),
     ],
