@@ -65,7 +65,6 @@ class PathPlannerBridgeNode(Node):
         self.last_pose_xy: np.ndarray | None = None
         self.last_dir_xy: np.ndarray | None = None
         self.last_cones = None
-        self.last_cones_count = 0
         self.has_new_inputs = False
 
         self.create_timer(max(0.02, timer_period), self._tick)
@@ -124,7 +123,6 @@ class PathPlannerBridgeNode(Node):
             left_index=int(ConeTypes.LEFT),
             right_index=int(ConeTypes.RIGHT),
         )
-        self.last_cones_count = sum(len(cones) for cones in self.last_cones)
         self.has_new_inputs = True
 
     def _tick(self) -> None:
@@ -139,7 +137,7 @@ class PathPlannerBridgeNode(Node):
             self.get_logger().warning("Waiting for cone map input before planning.")
             return
 
-        if self.last_cones_count == 0:
+        if not any(len(cones) for cones in self.last_cones):
             self.get_logger().warning("No usable cones in ConsMap; publishing empty path.")
             self.path_pub.publish(Float32MultiArray(data=[]))
             return
