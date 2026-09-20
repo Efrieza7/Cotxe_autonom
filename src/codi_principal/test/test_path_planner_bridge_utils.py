@@ -56,6 +56,12 @@ def test_extract_xy_path_rejects_bad_shapes():
     assert extract_xy_path(np.zeros((2, 1))) is None
 
 
+def test_extract_xy_path_accepts_empty_2d_arrays():
+    xy = extract_xy_path(np.zeros((0, 4)))
+    assert xy is not None
+    assert xy.shape == (0, 2)
+
+
 def test_build_cones_assigns_left_right_from_vehicle_pose():
     cons = [
         2.0, 1.0, 3.0,   # left of vehicle heading
@@ -94,6 +100,23 @@ def test_build_cones_falls_back_to_unknown_on_zero_heading():
     assert np.allclose(out[0], np.array([[2.0, 1.0], [2.0, -1.0]]))
 
 
+def test_build_cones_falls_back_to_unknown_on_invalid_direction():
+    cons = [2.0, 1.0, 3.0, 2.0, -1.0, 4.0]
+    out = build_cone_observations(
+        cons_data=cons,
+        cone_types_count=5,
+        unknown_index=0,
+        left_index=2,
+        right_index=1,
+        vehicle_position=(0.0, 0.0),
+        vehicle_direction=(1.0, float("nan")),
+    )
+
+    assert out[1].shape == (0, 2)
+    assert out[2].shape == (0, 2)
+    assert np.allclose(out[0], np.array([[2.0, 1.0], [2.0, -1.0]]))
+
+
 def test_build_cones_falls_back_to_unknown_on_invalid_indices():
     cons = [2.0, 1.0, 3.0, 2.0, -1.0, 4.0]
     out = build_cone_observations(
@@ -103,7 +126,7 @@ def test_build_cones_falls_back_to_unknown_on_invalid_indices():
         left_index=0,
         right_index=1,
         vehicle_position=(0.0, 0.0),
-        vehicle_direction=(1.0, float("nan")),
+        vehicle_direction=(1.0, 0.0),
     )
 
     assert out[1].shape == (0, 2)

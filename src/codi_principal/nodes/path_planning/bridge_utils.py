@@ -120,7 +120,7 @@ def extract_xy_path(planner_result) -> np.ndarray | None:
         return None
 
     array = np.asarray(planner_result)
-    if array.ndim != 2 or array.shape[0] == 0:
+    if array.ndim != 2:
         return None
 
 
