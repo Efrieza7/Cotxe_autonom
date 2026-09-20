@@ -23,7 +23,8 @@ El node de path planning fa de pont entre els tòpics reals del projecte i
    amb format `[x, y, count, ...]`.
 2. `path_planning` llegeix també la pose del vehicle a `/pose` (`Float32MultiArray`,
    format mínim `[x, y, yaw, ...]`).
-3. El bridge converteix tots els cons a `ConeTypes.UNKNOWN` i executa:
+3. El bridge separa els cons detectats en costat esquerre/dret segons la pose
+   i el heading actual del vehicle, i executa:
    `PathPlanner.calculate_path_in_global_frame(...)`.
 4. El resultat es publica a `/path_planning/waypoints` (`Float32MultiArray`,
    `[x0, y0, x1, y1, ...]`).
