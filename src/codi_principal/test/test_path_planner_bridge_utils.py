@@ -49,6 +49,12 @@ def test_extract_xy_path_from_fsd_shape():
     assert np.allclose(xy, np.array([[10.0, 20.0], [11.0, 21.0]]))
 
 
+def test_extract_xy_path_from_single_fsd_row():
+    xy = extract_xy_path(np.array([0.0, 10.0, 20.0, 0.1]))
+    assert xy is not None
+    assert np.allclose(xy, np.array([[10.0, 20.0]]))
+
+
 def test_extract_xy_path_rejects_bad_shapes():
     assert extract_xy_path(None) is None
     assert extract_xy_path(np.array([])) is None
