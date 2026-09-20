@@ -6,6 +6,7 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from nodes.path_planning.bridge_utils import (  # noqa: E402
+    build_cone_observations,
     build_unknown_cone_observations,
     extract_xy_path,
 )
@@ -52,3 +53,24 @@ def test_extract_xy_path_rejects_bad_shapes():
     assert extract_xy_path(None) is None
     assert extract_xy_path(np.array([])) is None
     assert extract_xy_path(np.array([1.0, 2.0])) is None
+
+
+def test_build_cones_assigns_left_right_from_vehicle_pose():
+    cons = [
+        2.0, 1.0, 3.0,   # left of vehicle heading
+        2.0, -1.0, 4.0,  # right of vehicle heading
+        3.0, 0.0, 5.0,   # centerline -> unknown
+    ]
+    out = build_cone_observations(
+        cons_data=cons,
+        cone_types_count=5,
+        unknown_index=0,
+        left_index=2,
+        right_index=1,
+        vehicle_position=(0.0, 0.0),
+        vehicle_direction=(1.0, 0.0),
+    )
+
+    assert np.allclose(out[2], np.array([[2.0, 1.0]]))
+    assert np.allclose(out[1], np.array([[2.0, -1.0]]))
+    assert np.allclose(out[0], np.array([[3.0, 0.0]]))

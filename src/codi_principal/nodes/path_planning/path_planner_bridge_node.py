@@ -14,7 +14,7 @@ from std_msgs.msg import Float32MultiArray
 
 from my_pakage_msgs.msg import ConsMap
 from .bridge_utils import (
-    build_unknown_cone_observations,
+    build_cone_observations,
     extract_xy_path,
 )
 
@@ -114,13 +114,17 @@ class PathPlannerBridgeNode(Node):
         self.has_new_inputs = True
 
     def map_callback(self, msg: ConsMap) -> None:
-        self.last_cones = build_unknown_cone_observations(
+        self.last_cones = build_cone_observations(
             cons_data=msg.data,
             cone_types_count=len(ConeTypes),
             unknown_index=int(ConeTypes.UNKNOWN),
             min_cone_count=self.min_cone_count,
+            vehicle_position=self.last_pose_xy,
+            vehicle_direction=self.last_dir_xy,
+            left_index=int(ConeTypes.LEFT),
+            right_index=int(ConeTypes.RIGHT),
         )
-        self.last_cones_count = len(self.last_cones[int(ConeTypes.UNKNOWN)])
+        self.last_cones_count = sum(len(cones) for cones in self.last_cones)
         self.has_new_inputs = True
 
     def _tick(self) -> None:
@@ -148,13 +152,13 @@ class PathPlannerBridgeNode(Node):
             self.get_logger().error(f"Path planner failed: {exc}")
             return
 
-        
-        if planner_result is None or len(planner_result) == 0:
+        path_xy = extract_xy_path(planner_result)
+        if path_xy is None or len(path_xy) == 0:
             self.get_logger().warning("Planner returned malformed/empty path output.")
             self.path_pub.publish(Float32MultiArray(data=[]))
             return
 
-        flattened = [float(v) for point in planner_result for v in point]
+        flattened = [float(v) for point in path_xy for v in point]
         self.path_pub.publish(Float32MultiArray(data=flattened))
 
 
