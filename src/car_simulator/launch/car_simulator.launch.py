@@ -49,6 +49,7 @@ def generate_launch_description():
                 'wheelbase': 0.40,
                 'track': 0.25,
                 'speed_mps': speed_mps,
+                'start_y': 3.0,
             }],
         ),
 
