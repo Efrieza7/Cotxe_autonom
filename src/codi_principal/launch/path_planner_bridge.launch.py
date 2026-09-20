@@ -21,6 +21,25 @@ def generate_launch_description():
                         "timer_period_sec": 0.1,
                     }
                 ],
-            )
+            ),
+            Node(
+                package="my_pakage",
+                executable="path_follower",
+                name="path_follower",
+                output="screen",
+                parameters=[
+                    {
+                        "path_topic": "/path_planning/waypoints",
+                        "pose_topic": "/pose",
+                        "steering_topic": "target_angle",
+                        "speed_topic": "target_speed",
+                        "lookahead": 0.5,
+                        "wheelbase": 0.40,
+                        "max_steer_rad": 0.785398,
+                        "target_speed": 0.8,
+                    }
+                ],
+            ),
         ]
     )
+

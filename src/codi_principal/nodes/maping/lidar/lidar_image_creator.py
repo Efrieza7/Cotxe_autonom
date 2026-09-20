@@ -150,9 +150,13 @@ class LidarAngleDistancePublisher(Node):
         # --------------------------------------------------
         # NO PROCESSAR EL LIDAR FINS TENIR LOCALITZACIÓ
         # --------------------------------------------------
+        # NOTA: aquest node fa servir un executor d'un sol fil, per tant
+        # un bucle d'espera activa aquí bloquejaria per sempre el callback
+        # de /bicycle_mode/pose (mai s'executaria). En comptes d'esperar,
+        # simplement descartem aquest escaneig i esperem el següent.
 
-        while not self.pose_received:
-            print("",end="")
+        if not self.pose_received:
+            return
 
         # --------------------------------------------------
         # Comprovar que hi ha dades

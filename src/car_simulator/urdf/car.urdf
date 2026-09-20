@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<robot name="car">
+
+  <material name="car_body">
+    <color rgba="0.1 0.4 0.9 1.0"/>
+  </material>
+  <material name="lidar_body">
+    <color rgba="0.1 0.1 0.1 1.0"/>
+  </material>
+
+  <!-- Chassis: box shape, 0.40 m long (wheelbase), 0.25 m wide (track) -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.05" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.40 0.25 0.10"/>
+      </geometry>
+      <material name="car_body"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.05" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.40 0.25 0.10"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- LiDAR mount, centered on the chassis -->
+  <link name="ldlidar_base">
+    <visual>
+      <geometry>
+        <cylinder radius="0.03" length="0.04"/>
+      </geometry>
+      <material name="lidar_body"/>
+    </visual>
+  </link>
+
+  <joint name="lidar_mount_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="ldlidar_base"/>
+    <origin xyz="0 0 0.12" rpy="0 0 0"/>
+  </joint>
+
+</robot>

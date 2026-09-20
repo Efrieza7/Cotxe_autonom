@@ -2,10 +2,24 @@ from setuptools import find_packages, setup
 
 package_name = 'my_pakage'
 
+# Ensure the bundled `fsd_path_planning` library (vendored under
+# nodes/path_planning/ft-fsd-path-planning-main/fsd_path_planning) is
+# installed as a top-level package so imports like
+# `from fsd_path_planning import ...` work at runtime.
+extra_packages = ['fsd_path_planning']
 setup(
     name=package_name,
     version='2.0.1',
-    packages=find_packages(exclude=['test']),
+    # include vendored fsd_path_planning subpackages so their modules
+    # (full_pipeline, calculate_path, utils, etc.) are installed
+    packages=(
+        find_packages(exclude=['test'])
+        + find_packages(where='nodes/path_planning/ft-fsd-path-planning-main')
+    ),
+    package_dir={
+        # map the top-level package name to the vendored location
+        'fsd_path_planning': 'nodes/path_planning/ft-fsd-path-planning-main/fsd_path_planning'
+    },
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -16,7 +30,9 @@ setup(
                 'launch/ldlidar_integration.launch.py',
                 'launch/proximiti_control.launch.py',
                 'launch/path_planner_bridge.launch.py',
-                'launch/complet_code.launch.py',
+                    'launch/complet_code.launch.py',
+                    'launch/simulation_mapping.launch.py',
+                    'launch/simulation_full.launch.py',
             ],
         ),
     ],
