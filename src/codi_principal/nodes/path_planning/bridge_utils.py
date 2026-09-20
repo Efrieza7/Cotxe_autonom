@@ -17,6 +17,7 @@ def build_cone_observations(
     left_index: int | None = None,
     right_index: int | None = None,
     lateral_deadband: float = 1e-6,
+    heading_min_norm: float = 1e-9,
 ) -> List[np.ndarray]:
     """Convert ConsMap interleaved data [x, y, count, ...] into planner cone arrays."""
     valid_points = []
@@ -77,7 +78,7 @@ def build_cone_observations(
         return cone_observations
 
     direction_norm = np.linalg.norm(vehicle_direction_array)
-    if not np.isfinite(direction_norm) or direction_norm <= 1e-9:
+    if not np.isfinite(direction_norm) or direction_norm <= heading_min_norm:
         cone_observations[unknown_index] = valid_points_array
         return cone_observations
 
