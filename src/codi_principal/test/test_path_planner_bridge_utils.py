@@ -53,6 +53,7 @@ def test_extract_xy_path_rejects_bad_shapes():
     assert extract_xy_path(None) is None
     assert extract_xy_path(np.array([])) is None
     assert extract_xy_path(np.array([1.0, 2.0])) is None
+    assert extract_xy_path(np.zeros((2, 1))) is None
 
 
 def test_build_cones_assigns_left_right_from_vehicle_pose():

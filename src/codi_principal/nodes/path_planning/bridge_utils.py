@@ -56,6 +56,15 @@ def build_cone_observations(
 
     vehicle_position_array = np.asarray(vehicle_position, dtype=np.float64)
     vehicle_direction_array = np.asarray(vehicle_direction, dtype=np.float64)
+    cone_indices = {unknown_index, left_index, right_index}
+
+    if (
+        len(cone_indices) != 3
+        or min(cone_indices) < 0
+        or max(cone_indices) >= cone_types_count
+    ):
+        cone_observations[unknown_index] = valid_points_array
+        return cone_observations
 
     if vehicle_position_array.shape != (2,) or vehicle_direction_array.shape != (2,):
         cone_observations[unknown_index] = valid_points_array
