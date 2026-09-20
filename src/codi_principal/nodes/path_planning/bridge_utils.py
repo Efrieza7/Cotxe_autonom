@@ -69,6 +69,12 @@ def build_cone_observations(
     if vehicle_position_array.shape != (2,) or vehicle_direction_array.shape != (2,):
         cone_observations[unknown_index] = valid_points_array
         return cone_observations
+    if not (
+        np.all(np.isfinite(vehicle_position_array))
+        and np.all(np.isfinite(vehicle_direction_array))
+    ):
+        cone_observations[unknown_index] = valid_points_array
+        return cone_observations
 
     direction_norm = np.linalg.norm(vehicle_direction_array)
     if not np.isfinite(direction_norm) or direction_norm <= 1e-9:

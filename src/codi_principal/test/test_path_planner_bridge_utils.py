@@ -75,3 +75,36 @@ def test_build_cones_assigns_left_right_from_vehicle_pose():
     assert np.allclose(out[2], np.array([[2.0, 1.0]]))
     assert np.allclose(out[1], np.array([[2.0, -1.0]]))
     assert np.allclose(out[0], np.array([[3.0, 0.0]]))
+
+
+def test_build_cones_falls_back_to_unknown_on_zero_heading():
+    cons = [2.0, 1.0, 3.0, 2.0, -1.0, 4.0]
+    out = build_cone_observations(
+        cons_data=cons,
+        cone_types_count=5,
+        unknown_index=0,
+        left_index=2,
+        right_index=1,
+        vehicle_position=(0.0, 0.0),
+        vehicle_direction=(0.0, 0.0),
+    )
+
+    assert out[1].shape == (0, 2)
+    assert out[2].shape == (0, 2)
+    assert np.allclose(out[0], np.array([[2.0, 1.0], [2.0, -1.0]]))
+
+
+def test_build_cones_falls_back_to_unknown_on_invalid_indices():
+    cons = [2.0, 1.0, 3.0, 2.0, -1.0, 4.0]
+    out = build_cone_observations(
+        cons_data=cons,
+        cone_types_count=5,
+        unknown_index=0,
+        left_index=0,
+        right_index=1,
+        vehicle_position=(0.0, 0.0),
+        vehicle_direction=(1.0, float("nan")),
+    )
+
+    assert out[1].shape == (0, 2)
+    assert np.allclose(out[0], np.array([[2.0, 1.0], [2.0, -1.0]]))
