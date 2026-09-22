@@ -27,8 +27,8 @@ class CarSimulatorNode(Node):
     def __init__(self) -> None:
         super().__init__('car_simulator_node')
 
-        self.declare_parameter('wheelbase', 0.40)
-        self.declare_parameter('track', 0.25)
+        self.declare_parameter('wheelbase', 0.20)
+        self.declare_parameter('track', 0.10)
         self.declare_parameter('speed_mps', 0.0)
         self.declare_parameter('update_rate_hz', 50.0)
         self.declare_parameter('start_x', 0.0)
