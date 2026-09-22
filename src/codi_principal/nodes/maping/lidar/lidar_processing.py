@@ -34,7 +34,7 @@ class LidarProcessing(Node):
         )
         self.subscription = self.create_subscription(
             Float32MultiArray,
-            '/bicycle_mode/pose',
+            '/pose',
             self.pose_callback,
             10)
             
@@ -60,7 +60,7 @@ class LidarProcessing(Node):
             pairs_in = len(xy) // 2
 
             clusters = []
-            threshold = 0.2
+            threshold = 1
             for idx in range(0, len(xy), 2):
                 x = xy[idx]
                 y = xy[idx + 1]
@@ -79,7 +79,7 @@ class LidarProcessing(Node):
             clusters = [c for c in clusters if c['count'] >= 3]
 
             diference_list = []
-            merge_threshold = 0.2
+            merge_threshold = 1
             global cons
             for newc in clusters:
                 merged = False

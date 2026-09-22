@@ -22,6 +22,7 @@ def generate_launch_description():
 
     use_rviz = LaunchConfiguration('use_rviz')
 
+    # Use a more complex map and slightly higher initial speed for this scenario
     car_simulator_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
@@ -30,7 +31,13 @@ def generate_launch_description():
                 'car_simulator.launch.py',
             )
         ),
-        launch_arguments={'use_rviz': use_rviz}.items(),
+        # increase LiDAR max_range and choose the complex map; set initial speed
+        launch_arguments={
+            'use_rviz': use_rviz,
+            'max_range': '5.0',
+            'map_file': os.path.join(get_package_share_directory('car_simulator'), 'maps', 'complex_track_clean.yaml'),
+            'speed_mps': '0.5',
+        }.items(),
     )
 
     mapping_nodes = [

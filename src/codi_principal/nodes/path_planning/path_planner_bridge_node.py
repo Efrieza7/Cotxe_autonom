@@ -22,6 +22,18 @@ _FSD_PATH = Path(__file__).resolve().parent / "ft-fsd-path-planning-main"
 if str(_FSD_PATH) not in sys.path:
     sys.path.insert(0, str(_FSD_PATH))
 
+
+def _add_workspace_venv_site_packages() -> None:
+    current_file = Path(__file__).resolve()
+    for parent in current_file.parents:
+        for site_packages in parent.glob('.venv/lib/python*/site-packages'):
+            site_packages_str = str(site_packages)
+            if site_packages_str not in sys.path:
+                sys.path.insert(0, site_packages_str)
+
+
+_add_workspace_venv_site_packages()
+
 from fsd_path_planning import ConeTypes, MissionTypes, PathPlanner
 
 

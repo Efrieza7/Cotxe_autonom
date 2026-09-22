@@ -32,7 +32,7 @@ class ConsMapViz(Node):
                 continue
 
             m = Marker()
-            m.header.frame_id = 'ldlidar_base'
+            m.header.frame_id = self.frame_id
             m.header.stamp = self.get_clock().now().to_msg()
             m.ns = 'cons_map'
             m.id = i // 3

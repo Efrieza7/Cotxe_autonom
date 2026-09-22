@@ -34,8 +34,12 @@ def load_cone_map(path: str) -> List[ConePoint]:
 
     try:
         with p.open('r') as f:
-            data = yaml.safe_load(f) or {}
-    except yaml.YAMLError:
+            raw_text = f.read()
+        # Some hand-edited map files may contain tabs in indentation, which
+        # YAML rejects. Normalize them so the simulator can still load the map.
+        data = yaml.safe_load(raw_text.replace('\t', '  ')) or {}
+    except yaml.YAMLError as exc:
+        print(f'[car_simulator.map_utils] Invalid YAML in {path}: {exc}')
         return []
 
     cones = data.get('cones', []) if isinstance(data, dict) else []

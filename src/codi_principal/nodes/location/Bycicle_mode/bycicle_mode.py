@@ -42,9 +42,7 @@ class BicycleLocation(Node):
         )
 
         # Publicador per a la posició calculada
-        self.pose_publisher = self.create_publisher(Float32MultiArray, 'pose', 10)
-
-        self.pose_publisher = self.create_publisher(Float32MultiArray, 'pose', 10)
+        self.pose_publisher = self.create_publisher(Float32MultiArray, '/pose', 10)
 
         # Inicialitzar variables
         self.x = 0.0

@@ -30,7 +30,7 @@ class LidarAngleDistancePublisher(Node):
 
         self.pose_subscription = self.create_subscription(
             Float32MultiArray,
-            '/bicycle_mode/pose',
+            '/pose',
             self.pose_callback,
             10
         )
