@@ -113,14 +113,17 @@ class PathFollower(Node):
             return
 
         x, y, yaw = self.pose
-        look_pt = self.find_lookahead_point(x, y)
+        # /pose is the front axle (LiDAR position); pure pursuit is defined
+        # from the rear axle, so lookahead and geometry are measured from there.
+        rear_x = x - self.wheelbase * math.cos(yaw)
+        rear_y = y - self.wheelbase * math.sin(yaw)
+        look_pt = self.find_lookahead_point(rear_x, rear_y)
         if look_pt is None:
             return
 
         lx, ly = look_pt
-        # transform lookahead to vehicle frame
-        dx = lx - x
-        dy = ly - y
+        dx = lx - rear_x
+        dy = ly - rear_y
         # angle from vehicle heading to lookahead
         angle_to_pt = math.atan2(dy, dx)
         alpha = normalize_angle(angle_to_pt - yaw)

@@ -25,6 +25,13 @@ class LidarProcessing(Node):
         self.pose = None
         self.diference_list = []
         super().__init__('lidar_processing')
+
+        # Distances in metres. Cones are 0.08 m wide at the base, ~0.18 m apart along a
+        # boundary and 0.35 m across the track, so both radii must stay well
+        # below half the cone spacing or neighbouring cones get merged.
+        self.cluster_threshold = float(self.declare_parameter('cluster_threshold', 0.08).value)
+        self.merge_threshold = float(self.declare_parameter('merge_threshold', 0.08).value)
+        self.min_points_per_cluster = int(self.declare_parameter('min_points_per_cluster', 2).value)
         
         self.subscription = self.create_subscription(
             Float32MultiArray,
@@ -60,13 +67,12 @@ class LidarProcessing(Node):
             pairs_in = len(xy) // 2
 
             clusters = []
-            threshold = 1
             for idx in range(0, len(xy), 2):
                 x = xy[idx]
                 y = xy[idx + 1]
                 assigned = False
                 for c in clusters:
-                    if math.hypot(x - c['x'], y - c['y']) < threshold:
+                    if math.hypot(x - c['x'], y - c['y']) < self.cluster_threshold:
                         k = c['count']
                         c['x'] = (c['x'] * k + x) / (k + 1)
                         c['y'] = (c['y'] * k + y) / (k + 1)
@@ -76,10 +82,9 @@ class LidarProcessing(Node):
                 if not assigned:
                     clusters.append({'x': x, 'y': y, 'count': 1})
 
-            clusters = [c for c in clusters if c['count'] >= 3]
+            clusters = [c for c in clusters if c['count'] >= self.min_points_per_cluster]
 
             diference_list = []
-            merge_threshold = 1
             global cons
             for newc in clusters:
                 merged = False
@@ -87,7 +92,7 @@ class LidarProcessing(Node):
                     ex_x = cons.data[i]
                     ex_y = cons.data[i + 1]
                     ex_k = int(cons.data[i + 2])
-                    if math.hypot(newc['x'] - ex_x, newc['y'] - ex_y) < merge_threshold:
+                    if math.hypot(newc['x'] - ex_x, newc['y'] - ex_y) < self.merge_threshold:
                         diference_list.append((newc['x'] - ex_x, newc['y'] - ex_y))
                         new_count = ex_k + newc['count']
                         cons.data[i] = (ex_x * ex_k + newc['x'] * newc['count']) / new_count

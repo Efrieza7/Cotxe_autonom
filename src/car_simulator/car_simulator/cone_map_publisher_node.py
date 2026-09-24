@@ -60,15 +60,17 @@ class ConeMapPublisherNode(Node):
             m.header.stamp = stamp
             m.ns = 'ground_truth_map'
             m.id = idx
-            m.type = Marker.CYLINDER
+            # 8 cm base x 12 cm high cone (meshes/generate_cone_mesh.py)
+            m.type = Marker.MESH_RESOURCE
+            m.mesh_resource = 'package://car_simulator/meshes/cone.stl'
             m.action = Marker.ADD
             m.pose.position.x = x
             m.pose.position.y = y
-            m.pose.position.z = 0.1
+            m.pose.position.z = 0.0
             m.pose.orientation.w = 1.0
-            m.scale.x = 0.065
-            m.scale.y = 0.065
-            m.scale.z = 0.2
+            m.scale.x = 1.0
+            m.scale.y = 1.0
+            m.scale.z = 1.0
             m.color.r = 1.0
             m.color.g = 0.6
             m.color.b = 0.0

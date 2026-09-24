@@ -18,6 +18,7 @@ import math
 import rclpy
 from geometry_msgs.msg import TransformStamped
 from rclpy.node import Node
+from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32, Float32MultiArray
 from tf2_ros import TransformBroadcaster
 
@@ -27,8 +28,8 @@ class CarSimulatorNode(Node):
     def __init__(self) -> None:
         super().__init__('car_simulator_node')
 
-        self.declare_parameter('wheelbase', 0.20)
-        self.declare_parameter('track', 0.10)
+        self.declare_parameter('wheelbase', 0.18)
+        self.declare_parameter('track', 0.13)
         self.declare_parameter('speed_mps', 0.0)
         self.declare_parameter('update_rate_hz', 50.0)
         self.declare_parameter('start_x', 0.0)
@@ -47,9 +48,12 @@ class CarSimulatorNode(Node):
         self.map_frame = str(self.get_parameter('map_frame').value)
         self.base_frame = str(self.get_parameter('base_frame').value)
 
-        self.x = float(self.get_parameter('start_x').value)
-        self.y = float(self.get_parameter('start_y').value)
+        # start_x/start_y and the published pose are the FRONT axle, where the
+        # LiDAR is mounted (same convention as codi_principal's bycicle_mode).
+        # The kinematic model is integrated at the rear axle (self.x, self.y).
         self.yaw = float(self.get_parameter('start_yaw').value)
+        self.x = float(self.get_parameter('start_x').value) - self.wheelbase * math.cos(self.yaw)
+        self.y = float(self.get_parameter('start_y').value) - self.wheelbase * math.sin(self.yaw)
         self.steer = 0.0
 
         pose_topic = str(self.get_parameter('pose_topic').value)
@@ -64,6 +68,8 @@ class CarSimulatorNode(Node):
         self.create_subscription(Float32, speed_topic, self._speed_cb, 10)
 
         self.tf_broadcaster = TransformBroadcaster(self)
+        # front wheel steering angle for robot_state_publisher (urdf/car.urdf)
+        self.joint_pub = self.create_publisher(JointState, '/joint_states', 10)
 
         period = 1.0 / max(1.0, update_rate)
         self.last_time = self.get_clock().now()
@@ -92,8 +98,11 @@ class CarSimulatorNode(Node):
         self.x += self.speed * dt * math.cos(self.yaw)
         self.y += self.speed * dt * math.sin(self.yaw)
 
+        front_x = self.x + self.wheelbase * math.cos(self.yaw)
+        front_y = self.y + self.wheelbase * math.sin(self.yaw)
+
         pose_msg = Float32MultiArray()
-        pose_msg.data = [self.x, self.y, self.yaw, self.speed, self.steer]
+        pose_msg.data = [front_x, front_y, self.yaw, self.speed, self.steer]
         self.pose_pub.publish(pose_msg)
         self.bicycle_pose_pub.publish(pose_msg)
 
@@ -101,12 +110,18 @@ class CarSimulatorNode(Node):
         tf_msg.header.stamp = now.to_msg()
         tf_msg.header.frame_id = self.map_frame
         tf_msg.child_frame_id = self.base_frame
-        tf_msg.transform.translation.x = self.x
-        tf_msg.transform.translation.y = self.y
+        tf_msg.transform.translation.x = front_x
+        tf_msg.transform.translation.y = front_y
         tf_msg.transform.translation.z = 0.0
         tf_msg.transform.rotation.z = math.sin(self.yaw / 2.0)
         tf_msg.transform.rotation.w = math.cos(self.yaw / 2.0)
         self.tf_broadcaster.sendTransform(tf_msg)
+
+        joints = JointState()
+        joints.header.stamp = tf_msg.header.stamp
+        joints.name = ['front_left_steer_joint', 'front_right_steer_joint']
+        joints.position = [float(self.steer), float(self.steer)]
+        self.joint_pub.publish(joints)
 
 
 def main(args=None) -> None:

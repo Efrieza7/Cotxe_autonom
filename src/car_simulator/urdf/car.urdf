@@ -1,35 +1,157 @@
 <?xml version="1.0"?>
 <robot name="car">
 
-  <material name="car_body">
-    <color rgba="0.1 0.4 0.9 1.0"/>
+  <!-- GT3-style body, 0.33 m long x 0.13 m wide.
+       base_link is the front (steering) axle on the ground, where the LiDAR is
+       mounted and the point /pose refers to. Wheelbase 0.18 m, track 0.13 m.
+       The body meshes come from meshes/generate_gt3_meshes.py
+       (front overhang 0.07 m, rear overhang 0.08 m). -->
+
+  <material name="paint">
+    <color rgba="0.95 0.42 0.05 1.0"/>
+  </material>
+  <material name="glass">
+    <color rgba="0.05 0.07 0.10 1.0"/>
+  </material>
+  <material name="carbon">
+    <color rgba="0.08 0.08 0.08 1.0"/>
+  </material>
+  <material name="tyre">
+    <color rgba="0.03 0.03 0.03 1.0"/>
+  </material>
+  <material name="rim">
+    <color rgba="0.75 0.75 0.78 1.0"/>
+  </material>
+  <material name="headlight">
+    <color rgba="1.0 0.97 0.80 1.0"/>
+  </material>
+  <material name="taillight">
+    <color rgba="0.90 0.02 0.02 1.0"/>
   </material>
   <material name="lidar_body">
-    <color rgba="0.1 0.1 0.1 1.0"/>
+    <color rgba="0.15 0.15 0.15 1.0"/>
   </material>
 
-  <!-- Chassis: box shape, 0.40 m long (wheelbase), 0.25 m wide (track) -->
   <link name="base_link">
+    <!-- body and greenhouse -->
     <visual>
-      <origin xyz="0 0 0.05" rpy="0 0 0"/>
       <geometry>
-        <box size="0.40 0.25 0.10"/>
+        <mesh filename="package://car_simulator/meshes/gt3_body.stl"/>
       </geometry>
-      <material name="car_body"/>
+      <material name="paint"/>
     </visual>
-    <collision>
-      <origin xyz="0 0 0.05" rpy="0 0 0"/>
+    <visual>
       <geometry>
-        <box size="0.40 0.25 0.10"/>
+        <mesh filename="package://car_simulator/meshes/gt3_cabin.stl"/>
+      </geometry>
+      <material name="glass"/>
+    </visual>
+
+    <!-- rear wing: main plane, end plates and swan-neck uprights -->
+    <visual>
+      <origin xyz="-0.242 0 0.106" rpy="0 0.12 0"/>
+      <geometry>
+        <box size="0.032 0.130 0.004"/>
+      </geometry>
+      <material name="carbon"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.242 0.066 0.100" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.045 0.003 0.032"/>
+      </geometry>
+      <material name="carbon"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.242 -0.066 0.100" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.045 0.003 0.032"/>
+      </geometry>
+      <material name="carbon"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.232 0.028 0.083" rpy="0 -0.25 0"/>
+      <geometry>
+        <box size="0.008 0.004 0.046"/>
+      </geometry>
+      <material name="carbon"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.232 -0.028 0.083" rpy="0 -0.25 0"/>
+      <geometry>
+        <box size="0.008 0.004 0.046"/>
+      </geometry>
+      <material name="carbon"/>
+    </visual>
+
+    <!-- front splitter and rear diffuser -->
+    <visual>
+      <origin xyz="0.060 0 0.013" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.030 0.125 0.003"/>
+      </geometry>
+      <material name="carbon"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.252 0 0.020" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.020 0.100 0.012"/>
+      </geometry>
+      <material name="carbon"/>
+    </visual>
+
+    <!-- mirrors -->
+    <visual>
+      <origin xyz="-0.030 0.052 0.070" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.012 0.012 0.008"/>
+      </geometry>
+      <material name="carbon"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.030 -0.052 0.070" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.012 0.012 0.008"/>
+      </geometry>
+      <material name="carbon"/>
+    </visual>
+
+    <!-- head lights and light bar at the back -->
+    <visual>
+      <origin xyz="0.056 0.040 0.036" rpy="0 0.5 0"/>
+      <geometry>
+        <box size="0.012 0.020 0.004"/>
+      </geometry>
+      <material name="headlight"/>
+    </visual>
+    <visual>
+      <origin xyz="0.056 -0.040 0.036" rpy="0 0.5 0"/>
+      <geometry>
+        <box size="0.012 0.020 0.004"/>
+      </geometry>
+      <material name="headlight"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.2595 0 0.046" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.004 0.110 0.005"/>
+      </geometry>
+      <material name="taillight"/>
+    </visual>
+
+    <collision>
+      <origin xyz="-0.095 0 0.040" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.33 0.13 0.06"/>
       </geometry>
     </collision>
   </link>
 
-  <!-- LiDAR mount, centered on the chassis -->
+  <!-- LiDAR over the front axle = base_link origin = /pose point -->
   <link name="ldlidar_base">
     <visual>
       <geometry>
-        <cylinder radius="0.03" length="0.04"/>
+        <cylinder radius="0.019" length="0.035"/>
       </geometry>
       <material name="lidar_body"/>
     </visual>
@@ -38,7 +160,83 @@
   <joint name="lidar_mount_joint" type="fixed">
     <parent link="base_link"/>
     <child link="ldlidar_base"/>
-    <origin xyz="0 0 0.12" rpy="0 0 0"/>
+    <origin xyz="0 0 0.085" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Wheels: 0.065 m diameter. Front ones steer (joint_states from
+       car_simulator_node), rear ones are fixed. -->
+  <link name="front_left_wheel">
+    <visual>
+      <origin rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0325" length="0.026"/></geometry>
+      <material name="tyre"/>
+    </visual>
+    <visual>
+      <origin rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.020" length="0.027"/></geometry>
+      <material name="rim"/>
+    </visual>
+  </link>
+  <link name="front_right_wheel">
+    <visual>
+      <origin rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0325" length="0.026"/></geometry>
+      <material name="tyre"/>
+    </visual>
+    <visual>
+      <origin rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.020" length="0.027"/></geometry>
+      <material name="rim"/>
+    </visual>
+  </link>
+  <link name="rear_left_wheel">
+    <visual>
+      <origin rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0325" length="0.026"/></geometry>
+      <material name="tyre"/>
+    </visual>
+    <visual>
+      <origin rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.020" length="0.027"/></geometry>
+      <material name="rim"/>
+    </visual>
+  </link>
+  <link name="rear_right_wheel">
+    <visual>
+      <origin rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0325" length="0.026"/></geometry>
+      <material name="tyre"/>
+    </visual>
+    <visual>
+      <origin rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.020" length="0.027"/></geometry>
+      <material name="rim"/>
+    </visual>
+  </link>
+
+  <joint name="front_left_steer_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="front_left_wheel"/>
+    <origin xyz="0 0.065 0.0325" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.8" upper="0.8" effort="1.0" velocity="10.0"/>
+  </joint>
+  <joint name="front_right_steer_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="front_right_wheel"/>
+    <origin xyz="0 -0.065 0.0325" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.8" upper="0.8" effort="1.0" velocity="10.0"/>
+  </joint>
+  <joint name="rear_left_wheel_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="rear_left_wheel"/>
+    <origin xyz="-0.18 0.065 0.0325" rpy="0 0 0"/>
+  </joint>
+  <joint name="rear_right_wheel_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="rear_right_wheel"/>
+    <origin xyz="-0.18 -0.065 0.0325" rpy="0 0 0"/>
   </joint>
 
 </robot>

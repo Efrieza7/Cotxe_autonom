@@ -2,7 +2,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -20,9 +20,29 @@ def generate_launch_description():
         consumes)
     """
 
-    use_rviz = LaunchConfiguration('use_rviz')
+    return LaunchDescription([
+        DeclareLaunchArgument('use_rviz', default_value='true'),
+        DeclareLaunchArgument('track', default_value='bcn',
+                              description='Circuit to load: ' + ', '.join(TRACKS)),
+        OpaqueFunction(function=_launch_setup),
+    ])
 
-    # Use a more complex map and slightly higher initial speed for this scenario
+
+# Each track: map file in car_simulator/maps and a start pose (x, y, yaw) on its
+# centreline, heading along the track. All maps are 0.35 m wide.
+TRACKS = {
+    'bcn': ('circuit_BCN.yaml', '1.384', '0.785', '-2.131'),
+    'realista': ('circuit_realista_35.yaml', '0.0', '0.0', '1.5596'),
+}
+
+
+def _launch_setup(context):
+    use_rviz = LaunchConfiguration('use_rviz')
+    track = LaunchConfiguration('track').perform(context)
+    if track not in TRACKS:
+        raise RuntimeError(f"Unknown track '{track}'. Options: {', '.join(TRACKS)}")
+    map_name, start_x, start_y, start_yaw = TRACKS[track]
+
     car_simulator_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
@@ -31,10 +51,12 @@ def generate_launch_description():
                 'car_simulator.launch.py',
             )
         ),
-        # increase LiDAR max_range and choose the complex map; set initial speed
         launch_arguments={
             'use_rviz': use_rviz,
-            'map_file': os.path.join(get_package_share_directory('car_simulator'), 'maps', 'complex_track_clean.yaml'),
+            'map_file': os.path.join(get_package_share_directory('car_simulator'), 'maps', map_name),
+            'start_x': start_x,
+            'start_y': start_y,
+            'start_yaw': start_yaw,
         }.items(),
     )
 
@@ -58,6 +80,7 @@ def generate_launch_description():
                 'experimental_performance_improvements': False,
                 'min_cone_count': 1,
                 'timer_period_sec': 0.1,
+                'planner_scale': 10.0,
             }],
         ),
         Node(
@@ -70,17 +93,12 @@ def generate_launch_description():
                 'pose_topic': '/pose',
                 'steering_topic': 'target_angle',
                 'speed_topic': 'target_speed',
-                'lookahead': 0.5,
-                'wheelbase': 0.40,
+                'lookahead': 0.2,
+                'wheelbase': 0.18,
                 'max_steer_rad': 0.785398,
-                'target_speed': 0.8,
+                'target_speed': 0.5,
             }],
         ),
     ]
 
-    return LaunchDescription([
-        DeclareLaunchArgument('use_rviz', default_value='true'),
-        car_simulator_include,
-        *mapping_nodes,
-        *control_nodes,
-    ])
+    return [car_simulator_include, *mapping_nodes, *control_nodes]

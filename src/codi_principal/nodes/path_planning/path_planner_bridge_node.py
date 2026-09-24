@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import math
+import os
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -34,6 +36,15 @@ def _add_workspace_venv_site_packages() -> None:
 
 _add_workspace_venv_site_packages()
 
+# fsd_path_planning JIT-compiles its numba functions on the first planner call
+# (~30 s). By default numba caches them next to the installed sources, which is
+# lost whenever install/ is wiped; keep the cache in the user's home instead so
+# only the very first run pays that cost.
+os.environ.setdefault(
+    "NUMBA_CACHE_DIR",
+    str(Path.home() / ".cache" / "cotxe_autonom" / "numba"),
+)
+
 from fsd_path_planning import ConeTypes, MissionTypes, PathPlanner
 
 
@@ -50,12 +61,21 @@ class PathPlannerBridgeNode(Node):
         self.declare_parameter("experimental_performance_improvements", False)
         self.declare_parameter("min_cone_count", 1)
         self.declare_parameter("timer_period_sec", 0.1)
+        # fsd_path_planning is tuned for Formula Student scale (3 m wide track,
+        # ~5 m between cones, 2.1 m car, several hard-coded metre constants).
+        # Our track is 0.35 m wide with cones ~0.18 m apart, so cones and pose
+        # are multiplied by this factor before planning and the path divided back.
+        self.declare_parameter("planner_scale", 10.0)
 
         self.map_topic = self.get_parameter("map_topic").value
         self.pose_topic = self.get_parameter("pose_topic").value
         self.path_topic = self.get_parameter("path_topic").value
         self.min_cone_count = int(self.get_parameter("min_cone_count").value)
         timer_period = float(self.get_parameter("timer_period_sec").value)
+        self.planner_scale = float(self.get_parameter("planner_scale").value)
+        if not math.isfinite(self.planner_scale) or self.planner_scale <= 0.0:
+            self.get_logger().warning("planner_scale must be > 0; using 1.0")
+            self.planner_scale = 1.0
         mission = self._mission_from_param(str(self.get_parameter("mission").value))
         experimental = bool(
             self.get_parameter("experimental_performance_improvements").value
@@ -78,6 +98,7 @@ class PathPlannerBridgeNode(Node):
         self.last_dir_xy: np.ndarray | None = None
         self.last_cones = None
         self.has_new_inputs = False
+        self.first_plan_done = False
 
         self.create_timer(max(0.02, timer_period), self._tick)
         self.get_logger().info(
@@ -154,13 +175,28 @@ class PathPlannerBridgeNode(Node):
             self.path_pub.publish(Float32MultiArray(data=[]))
             return
 
+        if not self.first_plan_done:
+            self.get_logger().info(
+                "First planner call: if numba has no cache yet it compiles "
+                "now (~30 s); the car will start moving afterwards."
+            )
+        start = time.monotonic()
         try:
+            scale = self.planner_scale
             planner_result = self.planner.calculate_path_in_global_frame(
-                self.last_cones, self.last_pose_xy, self.last_dir_xy
+                [cones * scale for cones in self.last_cones],
+                self.last_pose_xy * scale,
+                self.last_dir_xy,
             )
         except Exception as exc:
             self.get_logger().error(f"Path planner failed: {exc}")
             return
+
+        if not self.first_plan_done:
+            self.first_plan_done = True
+            self.get_logger().info(
+                f"First path computed in {time.monotonic() - start:.1f} s"
+            )
 
         path_xy = extract_xy_path(planner_result)
         if path_xy is None or len(path_xy) == 0:
@@ -168,6 +204,7 @@ class PathPlannerBridgeNode(Node):
             self.path_pub.publish(Float32MultiArray(data=[]))
             return
 
+        path_xy = path_xy / self.planner_scale
         flattened = [float(v) for point in path_xy for v in point]
         self.path_pub.publish(Float32MultiArray(data=flattened))
 

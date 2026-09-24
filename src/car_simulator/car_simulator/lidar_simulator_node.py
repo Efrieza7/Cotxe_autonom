@@ -35,11 +35,15 @@ class LidarSimulatorNode(Node):
 
         self.declare_parameter('map_file', '')
         self.declare_parameter('max_range', 2.0)
-        self.declare_parameter('cone_radius', 0.0325)
+        # Cones are 8 cm base x 12 cm high; the LiDAR only sees the slice at
+        # its scan height, whose radius shrinks linearly towards the tip.
+        self.declare_parameter('cone_base_radius', 0.04)
+        self.declare_parameter('cone_height', 0.12)
+        self.declare_parameter('lidar_height', 0.085)
         self.declare_parameter('rotation_frequency_hz', 10.0)
         self.declare_parameter('points_per_second', 4500.0)
         self.declare_parameter('range_min', 0.02)
-        self.declare_parameter('wheelbase', 0.40)
+        self.declare_parameter('wheelbase', 0.18)
         self.declare_parameter('pose_topic', '/pose')
         self.declare_parameter('scan_topic', '/ldlidar_node/scan')
         self.declare_parameter('frame_id', 'ldlidar_base')
@@ -47,7 +51,20 @@ class LidarSimulatorNode(Node):
 
         self.map_file = str(self.get_parameter('map_file').value)
         self.max_range = float(self.get_parameter('max_range').value)
-        self.cone_radius = float(self.get_parameter('cone_radius').value)
+        cone_base_radius = float(self.get_parameter('cone_base_radius').value)
+        cone_height = float(self.get_parameter('cone_height').value)
+        lidar_height = float(self.get_parameter('lidar_height').value)
+        self.cone_radius = max(0.0, cone_base_radius * (1.0 - lidar_height / cone_height))
+        if self.cone_radius <= 0.0:
+            self.get_logger().error(
+                f'LiDAR at {lidar_height} m is above the cones ({cone_height} m): '
+                'it will not see any cone'
+            )
+        else:
+            self.get_logger().info(
+                f'Cone slice at LiDAR height {lidar_height} m: '
+                f'{2 * self.cone_radius * 100:.1f} cm wide'
+            )
         self.rotation_frequency = float(self.get_parameter('rotation_frequency_hz').value)
         self.points_per_second = float(self.get_parameter('points_per_second').value)
         self.range_min = float(self.get_parameter('range_min').value)
@@ -66,6 +83,7 @@ class LidarSimulatorNode(Node):
         )
 
         self.pose = (0.0, 0.0, 0.0, 0.0, 0.0)  # x, y, yaw, v, steer
+        self.pose_time_ns: int | None = None  # when self.pose was received
 
         pose_topic = str(self.get_parameter('pose_topic').value)
         scan_topic = str(self.get_parameter('scan_topic').value)
@@ -97,16 +115,30 @@ class LidarSimulatorNode(Node):
             float(msg.data[3]),
             float(msg.data[4]),
         )
+        self.pose_time_ns = self.get_clock().now().nanoseconds
 
     def _pose_at_offset(self, delta_t: float) -> Tuple[float, float, float]:
-        """Mirror lidar_image_creator.pose_at_offset so beams carry the same displacement."""
+        """Mirror lidar_image_creator.pose_at_time so beams carry the same displacement.
+
+        /pose is the front axle (where the LiDAR is); the bicycle model is
+        integrated at the rear axle and converted back.
+        """
         x, y, yaw, v, steer = self.pose
+        rx = x - self.wheelbase * math.cos(yaw)
+        ry = y - self.wheelbase * math.sin(yaw)
         yaw_rate = 0.0
         if abs(self.wheelbase) > 1e-6:
             yaw_rate = (v / self.wheelbase) * math.tan(steer)
         heading = yaw + yaw_rate * delta_t
-        px = x + v * delta_t * math.cos(heading)
-        py = y + v * delta_t * math.sin(heading)
+        if abs(yaw_rate) > 1e-6:
+            radius = v / yaw_rate
+            rx += radius * (math.sin(heading) - math.sin(yaw))
+            ry -= radius * (math.cos(heading) - math.cos(yaw))
+        else:
+            rx += v * delta_t * math.cos(yaw)
+            ry += v * delta_t * math.sin(yaw)
+        px = rx + self.wheelbase * math.cos(heading)
+        py = ry + self.wheelbase * math.sin(heading)
         return px, py, heading
 
     def _cones_local_at(self, car_x: float, car_y: float, yaw: float) -> List[Tuple[float, float]]:
@@ -142,14 +174,20 @@ class LidarSimulatorNode(Node):
         return hit if hit >= 0.0 else math.inf
 
     def _publish_scan(self) -> None:
-        # msg.data at the end of the scan is treated as "now" (delta_t=0), matching
+        # The scan is stamped "now" = time of its last beam, matching
         # lidar_image_creator's (i - last_index) * time_increment convention.
+        # Every beam is traced from the pose at its own time, extrapolated from
+        # the last /pose sample (which is up to one pose period old).
+        if self.pose_time_ns is None:
+            return  # no pose yet: a scan from the default pose would be wrong
+        now = self.get_clock().now()
+        pose_age = (now.nanoseconds - self.pose_time_ns) * 1e-9
         last_index = self.points_per_scan - 1
 
         ranges = [math.inf] * self.points_per_scan
         angle = -math.pi
         for i in range(self.points_per_scan):
-            delta_t = (i - last_index) * self.time_increment
+            delta_t = (i - last_index) * self.time_increment + pose_age
             beam_x, beam_y, beam_yaw = self._pose_at_offset(delta_t)
             cones_local = self._cones_local_at(beam_x, beam_y, beam_yaw)
 
@@ -163,7 +201,7 @@ class LidarSimulatorNode(Node):
             angle += self.angle_increment
 
         scan = LaserScan()
-        scan.header.stamp = self.get_clock().now().to_msg()
+        scan.header.stamp = now.to_msg()
         scan.header.frame_id = self.frame_id
         scan.angle_min = -math.pi
         scan.angle_max = math.pi - self.angle_increment

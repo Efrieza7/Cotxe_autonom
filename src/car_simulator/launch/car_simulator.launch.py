@@ -6,6 +6,14 @@ from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
+
+# Real car dimensions (m): must match codi_principal (path_follower, bycicle_mode,
+# lidar_image_creator) and urdf/car.urdf.
+WHEELBASE = 0.18
+TRACK = 0.13
+# Height of the LiDAR scan plane above the ground (m), same as urdf/car.urdf.
+LIDAR_HEIGHT = 0.085
 
 
 def generate_launch_description():
@@ -21,6 +29,9 @@ def generate_launch_description():
     max_range = LaunchConfiguration('max_range')
     speed_mps = LaunchConfiguration('speed_mps')
     use_rviz = LaunchConfiguration('use_rviz')
+    start_x = LaunchConfiguration('start_x')
+    start_y = LaunchConfiguration('start_y')
+    start_yaw = LaunchConfiguration('start_yaw')
 
     return LaunchDescription([
         DeclareLaunchArgument('map_file', default_value=default_map,
@@ -31,6 +42,12 @@ def generate_launch_description():
                                description='Initial speed (m/s), overridden as soon as '
                                             'codi_principal\'s path_follower publishes /target_speed'),
         DeclareLaunchArgument('use_rviz', default_value='true'),
+        DeclareLaunchArgument('start_x', default_value='0.0',
+                               description='Initial x (m), must be inside the track of map_file'),
+        DeclareLaunchArgument('start_y', default_value='3.0',
+                               description='Initial y (m), must be inside the track of map_file'),
+        DeclareLaunchArgument('start_yaw', default_value='0.0',
+                               description='Initial heading (rad)'),
 
         Node(
             package='robot_state_publisher',
@@ -46,10 +63,12 @@ def generate_launch_description():
             name='car_simulator_node',
             output='screen',
             parameters=[{
-                'wheelbase': 0.40,
-                'track': 0.25,
+                'wheelbase': WHEELBASE,
+                'track': TRACK,
                 'speed_mps': speed_mps,
-                'start_y': 3.0,
+                'start_x': ParameterValue(start_x, value_type=float),
+                'start_y': ParameterValue(start_y, value_type=float),
+                'start_yaw': ParameterValue(start_yaw, value_type=float),
             }],
         ),
 
@@ -61,8 +80,11 @@ def generate_launch_description():
             parameters=[{
                 'map_file': map_file,
                 'max_range': max_range,
+                'wheelbase': WHEELBASE,
+                'lidar_height': LIDAR_HEIGHT,
+                # same as the real driver: 455 bins per revolution at 10 Hz
                 'rotation_frequency_hz': 10.0,
-                'points_per_second': 4500.0,
+                'points_per_second': 4550.0,
             }],
         ),
 

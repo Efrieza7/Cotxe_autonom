@@ -19,6 +19,7 @@ def generate_launch_description():
                         "experimental_performance_improvements": False,
                         "min_cone_count": 1,
                         "timer_period_sec": 0.1,
+                        "planner_scale": 10.0,
                     }
                 ],
             ),
@@ -33,8 +34,8 @@ def generate_launch_description():
                         "pose_topic": "/pose",
                         "steering_topic": "target_angle",
                         "speed_topic": "target_speed",
-                        "lookahead": 0.5,
-                        "wheelbase": 0.40,
+                        "lookahead": 0.3,
+                        "wheelbase": 0.18,
                         "max_steer_rad": 0.785398,
                         "target_speed": 0.8,
                     }
