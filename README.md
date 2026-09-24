@@ -10,6 +10,15 @@ Provo el sistema en simulació i en pista reduïda per validar detecció, estima
 source /opt/ros/jazzy/setup.bash && 
 source install/setup.bash 
 
+# crear venv nou
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+# instal·lar les deps del planner
+pip install -r src/codi_principal/nodes/path_planning/ft-fsd-path-planning-main/requirements.txt
+# instal·lar altres deps del projecte (si tens un requirements global)
+# pip install -r requirements.txt
+
 ```
 
 ## Path Planning — bridge amb `ft-fsd-path-planning`
