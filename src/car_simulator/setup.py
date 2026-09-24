@@ -13,7 +13,7 @@ setup(
         ('share/' + package_name + '/launch', ['launch/car_simulator.launch.py']),
         ('share/' + package_name + '/urdf', ['urdf/car.urdf']),
         ('share/' + package_name + '/rviz', ['rviz/car_simulator.rviz']),
-        ('share/' + package_name + '/maps', ['maps/sample_track.yaml', 'maps/complex_track.yaml', 'maps/complex_track_clean.yaml']),
+        ('share/' + package_name + '/maps', ['maps/sample_track.yaml', 'maps/complex_track.yaml', 'maps/complex_track_clean.yaml', 'maps/circuit_realista.yaml', 'maps/circuit_realista_V2.yaml', 'maps/circuit_BCN.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
