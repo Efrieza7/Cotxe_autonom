@@ -75,6 +75,7 @@ setup(
             'path_follower = nodes.control.path_follower:main',
             'speed_control = nodes.control.speed_control:main',
             'launch_complet = launcher.launch_complet:main',
+            'test_servo = launcher.test_servo:main',
 
         ],
     },
