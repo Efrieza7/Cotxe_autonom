@@ -49,7 +49,7 @@ class CarSimulatorNode(Node):
         self.base_frame = str(self.get_parameter('base_frame').value)
 
         # start_x/start_y and the published pose are the FRONT axle, where the
-        # LiDAR is mounted (same convention as codi_principal's bycicle_mode).
+        # LiDAR is mounted (same convention as codi_principal's bicycle_model).
         # The kinematic model is integrated at the rear axle (self.x, self.y).
         self.yaw = float(self.get_parameter('start_yaw').value)
         self.x = float(self.get_parameter('start_x').value) - self.wheelbase * math.cos(self.yaw)

@@ -12,7 +12,7 @@ Simulador per RViz per provar el `codi_principal` sense cotxe real:
   cotxe, i simula el desplaçament del cotxe punt a punt durant la volta
   (vegeu més avall). Substitueix el driver real, així que la resta del
   pipeline de mapeig (`lidar_image_creator`, `lidar_processing`,
-  `cons_map_viz`) s'executa sense cap canvi, ja que és qui fa la correcció
+  `cone_map_viz`) s'executa sense cap canvi, ja que és qui fa la correcció
   de posició.
 - **Path**: visualitza `/path_planning/waypoints` com a `nav_msgs/Path` i
   `Marker` (línia verda) a `/simulator/path` / `/simulator/path_markers`.
@@ -52,7 +52,7 @@ Cal llençar 3 launchers, per aquest ordre, en terminals separats:
 # 1) Simulador: model del cotxe, mapa real, LiDAR simulat, path i RViz
 ros2 launch car_simulator car_simulator.launch.py
 
-# 2) Codi principal (my_pakage): mapeig, SENSE bycicle_mode ni nodes de hardware
+# 2) Codi principal (my_pakage): mapeig, SENSE bicycle_model ni nodes de hardware
 ros2 launch my_pakage simulation_mapping.launch.py
 
 # 3) Codi principal (my_pakage): planificació de trajectòria + seguiment (pure pursuit)
@@ -70,11 +70,11 @@ Paràmetres opcionals del simulador:
 ros2 launch car_simulator car_simulator.launch.py map_file:=/ruta/al/meu_mapa.yaml max_range:=2.0
 ```
 
-**No llencis** `proximiti_control.launch.py` ni `ldlidar_integration.launch.py`
-en simulació: arrenquen `bycicle_mode` i nodes de hardware real (servo, motor,
-driver del LiDAR físic, `proximiti_direccion`). `bycicle_mode` publicaria al
+**No llencis** `proximity_control.launch.py` ni `ldlidar_integration.launch.py`
+en simulació: arrenquen `bicycle_model` i nodes de hardware real (servo, motor,
+driver del LiDAR físic, `proximity_steering`). `bicycle_model` publicaria al
 mateix `/pose` i `/bicycle_mode/pose` que ja genera `car_simulator_node`
-(ground truth), i `proximiti_direccion` publicaria un `/target_angle` en
+(ground truth), i `proximity_steering` publicaria un `/target_angle` en
 conflicte amb el de `path_follower`.
 
 ## Per què cal el desplaçament dels punts

@@ -14,7 +14,7 @@ def generate_launch_description():
     This is the launch to use for testing the car in simulation end-to-end:
         car_simulator (car_simulator_node, lidar_simulator_node,
                        cone_map_publisher_node, rviz2)
-      + mapping (lidar_image_creator, lidar_processing, cons_map_viz)
+      + mapping (lidar_image_creator, lidar_processing, cone_map_viz)
       + path_planner_bridge + path_follower (drives the simulated car by
         publishing /target_angle and /target_speed, which car_simulator_node
         consumes)
@@ -63,7 +63,7 @@ def _launch_setup(context):
     mapping_nodes = [
         Node(package='my_pakage', executable='lidar_image_creator', name='lidar_image_creator', output='screen'),
         Node(package='my_pakage', executable='lidar_processing', name='lidar_processing', output='screen'),
-        Node(package='my_pakage', executable='cons_map_viz', name='cons_map_viz', output='screen'),
+        Node(package='my_pakage', executable='cone_map_viz', name='cone_map_viz', output='screen'),
     ]
 
     control_nodes = [

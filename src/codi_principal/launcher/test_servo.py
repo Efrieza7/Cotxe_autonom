@@ -16,7 +16,7 @@ class TestServo(Node):
     durant uns quants cicles, el torna a deixar centrat i s'atura.
 
     Fa servir el mateix pin i les mateixes amplades de pols per defecte que
-    `direccion`, així que si allà funciona, aquí també.
+    `steering`, així que si allà funciona, aquí també.
     """
 
     PWM_FREQUENCY_HZ = 50.0

@@ -8,7 +8,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
-# Real car dimensions (m): must match codi_principal (path_follower, bycicle_mode,
+# Real car dimensions (m): must match codi_principal (path_follower, bicycle_model,
 # lidar_image_creator) and urdf/car.urdf.
 WHEELBASE = 0.18
 TRACK = 0.13

@@ -136,7 +136,7 @@ class PathFollower(Node):
         steering = math.atan2(2.0 * self.wheelbase * math.sin(alpha), Ld)
         steering = max(-self.max_steer, min(self.max_steer, steering))
 
-        # publish steering (radians) as Float32 -> `direccion` expects `target_angle`
+        # publish steering (radians) as Float32 -> `steering` expects `target_angle`
         steer_msg = Float32()
         steer_msg.data = float(steering)
         self.steer_pub.publish(steer_msg)

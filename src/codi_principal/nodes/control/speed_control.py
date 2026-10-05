@@ -53,7 +53,7 @@ class MyNode(Node):
     - Subscriu `target_speed` (Float32, m/s), publicat per `path_follower`.
     - Llegeix l'encoder (canal A) i calcula les RPM de la roda.
     - PID sobre RPM -> cicle de treball del PWM del pont H.
-    - Publica `wheel_speed` (Float32, m/s) mesurada, per a `bycicle_mode`.
+    - Publica `wheel_speed` (Float32, m/s) mesurada, per a `bicycle_model`.
     - Seguretat: si no arriba cap `target_speed` en `command_timeout_sec`,
       atura el motor.
 

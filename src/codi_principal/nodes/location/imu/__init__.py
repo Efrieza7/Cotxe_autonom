@@ -1,3 +1,3 @@
 """IMU node package."""
 
-__all__ = ["imu_suscriber"]
+__all__ = ["imu_reader"]

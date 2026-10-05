@@ -4,3 +4,11 @@ venv/
 ENV/
 env/
 .Python
+# Python
+__pycache__/
+*.pyc
+
+# colcon
+build/
+install/
+log/
