@@ -762,7 +762,7 @@ La localització del cotxe mitjançant el lidar es troba en un node de mapping p
 
 Aquesta part del codi s’encarrega de crear el mapa del circuit a partir de les dades de localització del cotxe, prèviament processades, i de les dades obtingudes mitjançant el LiDAR.
 
-El codi encarregat de llegir el LiDAR es troba a `src/lidar_drivers` i no ha estat desenvolupat pel programador del grup. Es tracta del codi recomanat pel fabricant d’acord amb les especificacions del sensor (datasheet). Aquest codi publica, després de cada volta completa del LiDAR, les dades de lectura en forma de coordenades angulars al topic `LidarScan`.
+El codi encarregat de llegir el LiDAR es troba a `src/lidar_drivers` i no ha estat desenvolupat pel programador del grup. Es tracta del codi recomanat pel fabricant d’acord amb les especificacions del sensor (datasheet). Aquest codi publica, després de cada volta completa del LiDAR, les dades de lectura en forma de coordenades angulars al topic `LaserScan`.
 
 Els nodes utilitzats en aquesta part del projecte són:
 
@@ -772,7 +772,7 @@ Els nodes utilitzats en aquesta part del projecte són:
 
 ### 14.1. lidar_image_creator
 
-Aquest node està subscrit al topic `LidarScan` i s’encarrega de processar les dades obtingudes del LiDAR. Les seves funcions principals són eliminar lectures errònies, convertir les coordenades angulars a coordenades cartesianes, transformar les coordenades locals a coordenades globals i corregir la distorsió provocada pel moviment del cotxe durant l’escaneig.
+Aquest node està subscrit al topic `LaserScan` i s’encarrega de processar les dades obtingudes del LiDAR. Les seves funcions principals són eliminar lectures errònies, convertir les coordenades angulars a coordenades cartesianes, transformar les coordenades locals a coordenades globals i corregir la distorsió provocada pel moviment del cotxe durant l’escaneig.
 
 La conversió de coordenades angulars a cartesianes es realitza mitjançant raons trigonomètriques. A partir de la distància i l’angle de cada punt, es calculen les seves coordenades X i Y.
 
@@ -934,9 +934,9 @@ Finalment, els colors indiquen a quin bloc del codi pertany cada element. El col
 
 Com es pot veure, el funcionament del codi comença amb la lectura del LiDAR (LaserScan). Aquesta lectura activa els nodes encarregats de llegir la velocitat i altres dades necessàries per poder localitzar el cotxe.
 
-Un cop finalitzada la localització, s’activen els algoritmes de mapping. D’aquesta manera, com que per realitzar la localització és necessari disposar de les dades del LaserScan, i el processament de la localització triga més temps que el processament necessari perquè el LaserScan arribi a image_creator, els nodes de mapping no poden començar a treballar fins que no disposen de totes les dades necessàries.
+Un cop finalitzada la localització, s’activen els algoritmes de mapping. D’aquesta manera, com que per realitzar la localització és necessari disposar de les dades del LaserScan, i el processament de la localització triga més temps que el processament necessari perquè el LaserScan arribi a `lidar_image_creator`, els nodes de mapping no poden començar a treballar fins que no disposen de totes les dades necessàries.
 
-Seguit, lidar_processing calcula la nova localització del cotxe i la transmet a bicycle_model. D’aquesta manera, el LaserScan actua com una mena de rellotge del sistema, ja que marca el ritme d’actualització i assegura que, en cada iteració, es treballi amb les dades més actuals disponibles.
+Seguit, `lidar_processing` calcula la nova localització del cotxe i la transmet a `bicycle_model`. D’aquesta manera, el LaserScan actua com una mena de rellotge del sistema, ja que marca el ritme d’actualització i assegura que, en cada iteració, es treballi amb les dades més actuals disponibles.
 
 Finalment es realitza el path plan i s'utilitza per fer el control seguint la mateixa norma d'iniciar els nodes amb les dades que triguin més a arribar s'utilitza per fer el control
 
@@ -1024,7 +1024,7 @@ if __name__ == '__main__':
 
 <a id="imatge-12"></a>
 
-![Imatge 12: Mapa conceptual de l'organització del sistema](imatges/imatge_12_mapa_conceptual.jpg)
+![Imatge 12: Mapa conceptual de l'organització del sistema](imatges/imatge_12_mapa_conceptual.png)
 
 *Imatge 12: Mapa conceptual de l'organització del sistema*
 
