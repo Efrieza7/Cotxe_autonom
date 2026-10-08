@@ -46,7 +46,7 @@ setup(
     ],
     zip_safe=True,
     maintainer='Efrieza',
-    maintainer_email='sernicbe@gmail.com',
+    maintainer_email='senricbe@gmail.com',
     description='Projecte TDR',
     license='Mudle Catala',
     extras_require={

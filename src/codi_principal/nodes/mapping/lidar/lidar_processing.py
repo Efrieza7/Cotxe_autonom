@@ -4,9 +4,9 @@ from std_msgs.msg import Float32MultiArray
 from my_pakage_msgs.msg import ConsMap
 import math
 
-# Deixar aquesta variable a 0 fins a comprovar el funcionament del codi, en cas de ser necesari per 
-# reuir l'error del model matematic començar amb valors de 0.1 i no superar mai 1.
-diference_reductor = 0
+# Deixar aquesta variable a 0 fins a comprovar el funcionament del codi. En cas de ser necessari per
+# reduir l'error del model matemàtic, començar amb valors de 0.1 i no superar mai 1.
+difference_reductor = 0
 
 # Global persistent matrix of cones as a message instance
 # `cons` is a ConsMap() message; data is interleaved: [x,y,count, x,y,count, ...]
@@ -15,15 +15,23 @@ cons.data = []
 
 
 class LidarProcessing(Node):
-    """Subscribe to Cartesian XY points and publish clusters/cons map.
+    """Agrupa els punts XY del LIDAR en cons i manté el mapa global de cons.
 
-    Input: Float32MultiArray data = [x0, y0, x1, y1, ...]
-    Output: Float32MultiArray on `/ldlidar_node/scan_xy` (echo) and `/ldlidar_node/scan_clusters`.
+    Entrades:
+      - `/ldlidar_node/scan_xy` (Float32MultiArray) = [x0, y0, x1, y1, ...] en
+        coordenades globals, de `lidar_image_creator`.
+      - `/pose` (Float32MultiArray) = [x, y, yaw, v, steering].
+
+    Sortides:
+      - `/ldlidar_node/cons_map` (ConsMap) = [x, y, count, ...]: mapa global de cons.
+      - `/lidar_node/location_solved` (Float32MultiArray): `/pose` corregida
+        amb la diferència mitjana entre els cons vistos i els del mapa
+        (multiplicada per `difference_reductor`).
     """
 
     def __init__(self):
         self.pose = None
-        self.diference_list = []
+        self.difference_list = []
         super().__init__('lidar_processing')
 
         # Distances in metres. Cones are 0.08 m wide at the base, ~0.18 m apart along a
@@ -31,7 +39,7 @@ class LidarProcessing(Node):
         # below half the cone spacing or neighbouring cones get merged.
         self.cluster_threshold = float(self.declare_parameter('cluster_threshold', 0.08).value)
         self.merge_threshold = float(self.declare_parameter('merge_threshold', 0.08).value)
-        self.min_points_per_cluster = int(self.declare_parameter('min_points_per_cluster', 2).value)
+        self.min_points_per_cluster = int(self.declare_parameter('min_points_per_cluster', 3).value)
         
         self.subscription = self.create_subscription(
             Float32MultiArray,
@@ -84,7 +92,7 @@ class LidarProcessing(Node):
 
             clusters = [c for c in clusters if c['count'] >= self.min_points_per_cluster]
 
-            diference_list = []
+            difference_list = []
             global cons
             for newc in clusters:
                 merged = False
@@ -93,7 +101,7 @@ class LidarProcessing(Node):
                     ex_y = cons.data[i + 1]
                     ex_k = int(cons.data[i + 2])
                     if math.hypot(newc['x'] - ex_x, newc['y'] - ex_y) < self.merge_threshold:
-                        diference_list.append((newc['x'] - ex_x, newc['y'] - ex_y))
+                        difference_list.append((newc['x'] - ex_x, newc['y'] - ex_y))
                         new_count = ex_k + newc['count']
                         cons.data[i] = (ex_x * ex_k + newc['x'] * newc['count']) / new_count
                         cons.data[i + 1] = (ex_y * ex_k + newc['y'] * newc['count']) / new_count
@@ -102,31 +110,27 @@ class LidarProcessing(Node):
                         break
                 if not merged:
                     cons.data.extend([float(newc['x']), float(newc['y']), float(newc['count'])])
-                total_x = 0.0
-                total_y = 0.0
             self.pub_cons_map.publish(cons)
-            
 
             pairs_out = len(clusters)
-            self.get_logger().info(
+            self.get_logger().debug(
                 f'Processed scan: pairs_in={pairs_in} pairs_out={pairs_out} cons_count={len(cons.data)//3}'
             )
-            self.diference_list = diference_list
+            self.difference_list = difference_list
             if self.pose is not None:
-    
                 pose_x = float(self.pose[0])
                 pose_y = float(self.pose[1])
 
                 total_x = 0.0
                 total_y = 0.0
 
-                for dx, dy in self.diference_list:
+                for dx, dy in self.difference_list:
                     total_x += dx
                     total_y += dy
 
-                if self.diference_list:
-                    error_x = total_x / len(self.diference_list)
-                    error_y = total_y / len(self.diference_list)
+                if self.difference_list:
+                    error_x = total_x / len(self.difference_list)
+                    error_y = total_y / len(self.difference_list)
                 else:
                     error_x = 0.0
                     error_y = 0.0
@@ -134,8 +138,8 @@ class LidarProcessing(Node):
                 location_solved = Float32MultiArray()
 
                 location_solved.data = [
-                    pose_x - error_x*diference_reductor,
-                    pose_y - error_y*diference_reductor,
+                    pose_x - error_x * difference_reductor,
+                    pose_y - error_y * difference_reductor,
                     float(self.pose[2]),
                     float(self.pose[3]),
                     float(self.pose[4])
@@ -144,7 +148,6 @@ class LidarProcessing(Node):
                 self.pub_location_solved.publish(location_solved)
 
         except Exception as e:
-        
             self.get_logger().error(f'Error processing scan: {e}')
             
     def pose_callback(self, msg):
@@ -153,16 +156,6 @@ class LidarProcessing(Node):
             return
 
         self.pose = list(msg.data)
-            
-            
-            
-            
-            
-            
-                
-                
-                
-            
 
 
 def main(args=None):

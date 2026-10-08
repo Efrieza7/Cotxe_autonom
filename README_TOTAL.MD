@@ -950,6 +950,12 @@ El simulador recrea dues coses: el moviment del cotxe i la lectura del LiDAR. Pe
 
 D'aquesta manera, la resta del sistema (mapeig, path plan i control) és exactament el mateix codi que s'executa al cotxe, i el resultat es pot veure a RViz2.
 
+<a id="imatge-12"></a>
+
+![Imatge 12: Simulació del cotxe a RViz2](imatges/imatge_12_simulacio_rviz.gif)
+
+*Imatge 12: Simulació del cotxe a RViz2*
+
 Per executar la simulació s'utilitza la comanda:
 
 ```bash
@@ -1022,11 +1028,11 @@ if __name__ == '__main__':
 
 ### Annex 2: Mapa conceptual del sistema
 
-<a id="imatge-12"></a>
+<a id="imatge-13"></a>
 
-![Imatge 12: Mapa conceptual de l'organització del sistema](imatges/imatge_12_mapa_conceptual.png)
+![Imatge 13: Mapa conceptual de l'organització del sistema](imatges/imatge_13_mapa_conceptual.png)
 
-*Imatge 12: Mapa conceptual de l'organització del sistema*
+*Imatge 13: Mapa conceptual de l'organització del sistema*
 
 ---
 
@@ -1043,7 +1049,8 @@ if __name__ == '__main__':
 - [Imatge 9: Dibuix orientatiu bicycle model](#imatge-9)
 - [Imatge 10: Simulació path plan en una recta](#imatge-10)
 - [Imatge 11: Explicació PID](#imatge-11)
-- [Imatge 12: Mapa conceptual de l'organització del sistema](#imatge-12)
+- [Imatge 12: Simulació del cotxe a RViz2](#imatge-12)
+- [Imatge 13: Mapa conceptual de l'organització del sistema](#imatge-13)
 
 ## ÍNDEX DE TAULES
 

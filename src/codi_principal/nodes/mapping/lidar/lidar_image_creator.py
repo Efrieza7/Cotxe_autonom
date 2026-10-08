@@ -69,6 +69,11 @@ class LidarAngleDistancePublisher(Node):
         self.body_max_x = float(self.declare_parameter('body_max_x', 0.0).value)
         self.body_half_width = float(self.declare_parameter('body_half_width', 0.0).value)
 
+        # Distància màxima (m) dels punts que es fan servir. Els cons d'interès
+        # són a prop (la pista fa 0.35 m d'ample); els punts més llunyans són
+        # sobretot parets i soroll, que omplirien el mapa de cons falsos.
+        self.max_range = float(self.declare_parameter('max_range', 2.0).value)
+
         # Historial (temps_ns, x, y, heading, speed, steering) de /pose per poder
         # fer servir la posició de l'instant exacte de cada raig del LIDAR.
         self.pose_history = deque(maxlen=200)
@@ -87,7 +92,7 @@ class LidarAngleDistancePublisher(Node):
 
         self.get_logger().info(
             'Cartesian publisher started. '
-            'Waiting for /bicycle_mode/pose'
+            'Waiting for /pose'
         )
 
     # ======================================================
@@ -98,8 +103,8 @@ class LidarAngleDistancePublisher(Node):
 
         if len(msg.data) < 5:
             self.get_logger().warning(
-                'Expected [x, y, direccio, v_motor, direccio_rodes] '
-                'on /bicycle_mode/pose'
+                'Expected [x, y, direccio, v, direccio_rodes] '
+                'on /pose'
             )
             return
 
@@ -139,15 +144,17 @@ class LidarAngleDistancePublisher(Node):
     # CALCULAR POSICIÓ EN UN INSTANT DETERMINAT
     # ======================================================
 
-    def pose_at_time(self, t_ns: int):
+    def pose_at_time(self, t_ns: int, times):
         """Posició de l'eix davanter a l'instant t_ns: la pose rebuda més
         propera en el temps, extrapolada amb el model bicicleta fins a t_ns.
+
+        `times` són els temps de `pose_history` (es calculen un cop per
+        escaneig, no per a cada punt).
 
         El model s'integra a l'eix posterior (on no hi ha lliscament lateral) i
         el resultat es torna a passar a l'eix davanter."""
 
         # pose més propera en el temps (abans o després), extrapolada
-        times = [p[0] for p in self.pose_history]
         idx = bisect.bisect_left(times, t_ns)
         if idx >= len(times) or (
             idx > 0 and t_ns - times[idx - 1] < times[idx] - t_ns
@@ -198,7 +205,7 @@ class LidarAngleDistancePublisher(Node):
         # --------------------------------------------------
         # NOTA: aquest node fa servir un executor d'un sol fil, per tant
         # un bucle d'espera activa aquí bloquejaria per sempre el callback
-        # de /bicycle_mode/pose (mai s'executaria). En comptes d'esperar,
+        # de /pose (mai s'executaria). En comptes d'esperar,
         # simplement descartem aquest escaneig i esperem el següent.
 
         if not self.pose_received or not self.pose_history:
@@ -210,7 +217,8 @@ class LidarAngleDistancePublisher(Node):
 
         if not msg.ranges:
             return
-
+             
+            
         # Esperar la pose d'aquest escaneig (arriba just després). Si
         # l'anterior encara esperava, es processa ara amb el que hi ha.
         if self.pending_scan is not None:
@@ -251,8 +259,12 @@ class LidarAngleDistancePublisher(Node):
             scan_end_ns = self.get_clock().now().nanoseconds
 
         scan_start_ns = scan_end_ns - int(last_index * time_increment * 1e9)
+
+        # Temps de l'historial de poses: no canvia mentre es processa l'escaneig
+        times = [p[0] for p in self.pose_history]
+
         pose_gap = max(
-            min(abs(p[0] - t) for p in self.pose_history)
+            min(abs(t_pose - t) for t_pose in times)
             for t in (scan_start_ns, scan_end_ns)
         ) * 1e-9
         if pose_gap > self.max_pose_gap:
@@ -263,6 +275,7 @@ class LidarAngleDistancePublisher(Node):
             return
 
         angle = msg.angle_min
+        max_range = min(msg.range_max, self.max_range)
 
         cartesian_coords = []
 
@@ -272,7 +285,7 @@ class LidarAngleDistancePublisher(Node):
             if (
                 not math.isfinite(distance)
                 or distance < msg.range_min
-                or distance > msg.range_max
+                or distance > max_range
             ):
                 angle += msg.angle_increment
                 continue
@@ -285,7 +298,7 @@ class LidarAngleDistancePublisher(Node):
 
             # Posició del robot en aquell instant
             pose_x, pose_y, pose_heading = (
-                self.pose_at_time(scan_end_ns + int(delta_t * 1e9))
+                self.pose_at_time(scan_end_ns + int(delta_t * 1e9), times)
             )
 
             # Coordenades del punt respecte del cotxe (LIDAR = eix davanter)

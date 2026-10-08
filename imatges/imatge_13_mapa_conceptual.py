@@ -1,7 +1,7 @@
-"""Genera el mapa conceptual del sistema (Imatge 12 del document).
+"""Genera el mapa conceptual del sistema (Imatge 13 del document).
 
 Executar des de la carpeta `imatges/`:
-    python3 imatge_12_mapa_conceptual.py
+    python3 imatge_13_mapa_conceptual.py
 
 Les coordenades són en píxels d'un llenç de 2000 x 851 (origen a dalt a l'esquerra).
 """
@@ -10,7 +10,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Polygon, Rectangle
 
-OUT = 'imatge_12_mapa_conceptual.png'
+OUT = 'imatge_13_mapa_conceptual.png'
 
 W, H = 2000, 851
 INK = '#333333'

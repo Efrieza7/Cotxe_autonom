@@ -1,3 +1,4 @@
+import math
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -6,6 +7,10 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, Opaq
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+
+# Angle màxim real de les rodes (rad): igual que full_car.launch.py,
+# angle_rodes = 24.52 deg · sin(angle_servo) amb el servo a 45 deg (~17.3 deg).
+MAX_STEER = math.radians(24.52) * math.sin(math.radians(45.0))
 
 
 def generate_launch_description():
@@ -95,7 +100,7 @@ def _launch_setup(context):
                 'speed_topic': 'target_speed',
                 'lookahead': 0.2,
                 'wheelbase': 0.18,
-                'max_steer_rad': 0.785398,
+                'max_steer_rad': MAX_STEER,
                 'target_speed': 0.5,
             }],
         ),

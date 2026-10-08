@@ -16,11 +16,20 @@ class BicycleLocation(Node):
 
     Entrades:
       - `wheel_speed` (Float32, m/s): velocitat mesurada per `speed_control`.
+      - `imu/accel` (Float32, m/s², opcional): acceleració cap endavant de
+        `imu_reader`. Si arriba, la velocitat es calcula amb un filtre
+        complementari: v = α·(v + a·dt) + (1 − α)·wheel_speed, amb
+        α = τ / (τ + dt) i τ = `speed_filter_tau`. L'acceleròmetre segueix
+        els canvis ràpids de velocitat i l'encoder evita que l'error
+        d'integrar l'acceleració s'acumuli. Si l'encoder marca 0 (rodes
+        aturades), v = 0, perquè el biaix de l'acceleròmetre no faci avançar
+        el cotxe quan està quiet. Sense IMU (o si fa més de `imu_timeout_sec`
+        que no arriba), v = wheel_speed.
       - `steering_angle` (Float32, rad): angle ordenat al servo per `steering`.
       - `imu/yaw_rate` (Float32, rad/s, opcional): giroscopi de `imu_reader`.
-        Si arriba, s'usa per a l'orientació (més fiable que el model quan les
-        rodes llisquen); si fa més de `imu_timeout_sec` que no arriba, el gir
-        es calcula amb v / wheelbase * tan(steering).
+        Si arriba, el gir és la mitjana del giroscopi i del model
+        v / wheelbase * tan(steering); si fa més de `imu_timeout_sec` que no
+        arriba, el gir es calcula només amb el model.
       - `/lidar_node/location_solved` (opcional, `use_lidar_correction`):
         correcció de posició de `lidar_processing`.
 
@@ -37,6 +46,8 @@ class BicycleLocation(Node):
         self.distancia_rodes = float(self.declare_parameter('wheelbase', 0.18).value)
         scan_topic = str(self.declare_parameter('scan_topic', '/ldlidar_node/scan').value)
         self.imu_timeout = float(self.declare_parameter('imu_timeout_sec', 0.2).value)
+        # Constant de temps (s) del filtre de velocitat: com més gran, més pes té l'acceleròmetre.
+        self.speed_tau = float(self.declare_parameter('speed_filter_tau', 0.2).value)
         self.use_lidar_correction = bool(
             self.declare_parameter('use_lidar_correction', False).value
         )
@@ -46,12 +57,16 @@ class BicycleLocation(Node):
 
         if self.distancia_rodes <= 0.0:
             raise ValueError('wheelbase must be > 0')
+        if self.speed_tau < 0.0:
+            raise ValueError('speed_filter_tau must be >= 0')
 
         # estat intern: eix posterior
         self.x = start_x - self.distancia_rodes * cos(self.direccio_actual)
         self.y = start_y - self.distancia_rodes * sin(self.direccio_actual)
 
         self.v_motor = 0.0
+        self.v = 0.0  # velocitat combinada (encoder + acceleròmetre)
+        self.accel_time = None
         self.direccio_rodes = 0.0
         self.imu_yaw_rate = None
         self.imu_time = None
@@ -59,6 +74,7 @@ class BicycleLocation(Node):
         self.create_subscription(Float32, 'wheel_speed', self.speed_callback, 10)
         self.create_subscription(Float32, 'steering_angle', self.steering_callback, 10)
         self.create_subscription(Float32, 'imu/yaw_rate', self.imu_callback, 10)
+        self.create_subscription(Float32, 'imu/accel', self.accel_callback, 10)
         self.create_subscription(
             Float32MultiArray, '/lidar_node/location_solved', self.lidar_callback, 10
         )
@@ -82,6 +98,29 @@ class BicycleLocation(Node):
     def speed_callback(self, msg):
         if math.isfinite(msg.data):
             self.v_motor = float(msg.data)
+            if not self._accel_fresh(self.get_clock().now()):
+                self.v = self.v_motor
+
+    def accel_callback(self, msg):
+        if not math.isfinite(msg.data):
+            return
+        now = self.get_clock().now()
+        if not self._accel_fresh(now) or self.v_motor == 0.0:
+            # primera lectura, la IMU s'havia aturat o rodes aturades: es parteix de l'encoder
+            self.v = self.v_motor
+        else:
+            dt = (now - self.accel_time).nanoseconds * 1e-9
+            if dt > 0.0:
+                # filtre complementari: acceleròmetre a curt termini, encoder a llarg termini
+                alpha = self.speed_tau / (self.speed_tau + dt)
+                self.v = alpha * (self.v + float(msg.data) * dt) + (1.0 - alpha) * self.v_motor
+        self.accel_time = now
+
+    def _accel_fresh(self, now):
+        return (
+            self.accel_time is not None
+            and (now - self.accel_time).nanoseconds * 1e-9 < self.imu_timeout
+        )
 
     def steering_callback(self, msg):
         if math.isfinite(msg.data):
@@ -123,21 +162,22 @@ class BicycleLocation(Node):
             self.imu_time is not None
             and (now - self.imu_time).nanoseconds * 1e-9 < self.imu_timeout
         )
+        v = self.v if self._accel_fresh(now) else self.v_motor
         if imu_fresh:
-            yaw_rate = (self.imu_yaw_rate + (self.v_motor / self.distancia_rodes) * math.tan(self.direccio_rodes)) / 2.0
+            yaw_rate = (self.imu_yaw_rate + (v / self.distancia_rodes) * math.tan(self.direccio_rodes)) / 2.0
         else:
-            yaw_rate = (self.v_motor / self.distancia_rodes) * math.tan(self.direccio_rodes)
+            yaw_rate = (v / self.distancia_rodes) * math.tan(self.direccio_rodes)
 
         # Actualitzar la direcció, x i y: arc exacte (dt entre escanejos és gran)
         heading0 = self.direccio_actual
         self.direccio_actual += yaw_rate * dt
         if abs(yaw_rate) > 1e-6:
-            radi = self.v_motor / yaw_rate
+            radi = v / yaw_rate
             self.x += radi * (sin(self.direccio_actual) - sin(heading0))
             self.y -= radi * (cos(self.direccio_actual) - cos(heading0))
         else:
-            self.x += self.v_motor * dt * cos(heading0)
-            self.y += self.v_motor * dt * sin(heading0)
+            self.x += v * dt * cos(heading0)
+            self.y += v * dt * sin(heading0)
 
         self.publish_pose()
 
@@ -148,7 +188,7 @@ class BicycleLocation(Node):
             float(self.x + self.distancia_rodes * cos(self.direccio_actual)),
             float(self.y + self.distancia_rodes * sin(self.direccio_actual)),
             float(self.direccio_actual),
-            float(self.v_motor),
+            float(self.v),
             float(self.direccio_rodes),
         ]
         self.pose_publisher.publish(pose_msg)

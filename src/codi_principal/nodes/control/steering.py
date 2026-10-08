@@ -14,12 +14,15 @@ class Steering(Node):
     """Mou el servo de la direcció a partir de l'angle objectiu.
 
     - Subscriu `target_angle` (Float32, radians, positiu = gir a l'esquerra),
-      publicat per `path_follower`.
+      publicat per `path_follower`. És l'angle de les rodes, no el del servo.
+    - Converteix l'angle de les rodes en angle del servo amb la transmissió
+      Ackermann-servomotor: angle_rodes = K · sin(angle_servo), on K és
+      `wheel_angle_gain_deg` (el màxim teòric, amb el servo a 90°).
     - Aplica un limitador de velocitat (slew rate) per evitar salts bruscos.
     - Genera el PWM del servo directament des d'un GPIO de la Raspberry
       (50 Hz, amplada de pols entre `min_pulse_us` i `max_pulse_us`).
-    - Publica a `steering_angle` (Float32, radians) l'angle realment ordenat,
-      que fa servir `bicycle_model` per a la localització.
+    - Publica a `steering_angle` (Float32, radians) l'angle de les rodes
+      realment ordenat, que fa servir `bicycle_model` per a la localització.
 
     Si RPi.GPIO no està disponible o `dry_run` és True, no mou cap servo però
     continua publicant `steering_angle` (útil per provar-ho fora del cotxe).
@@ -31,8 +34,14 @@ class Steering(Node):
         super().__init__('steering')
 
         self.servo_pin = int(self.declare_parameter('servo_pin', 13).value)  # BCM
-        self.max_angle = float(self.declare_parameter('max_angle', 0.785398).value)  # rad
-        # Amplada de pols per a -max_angle, 0 i +max_angle (microsegons).
+        # Angle del servo (rad) a min_pulse_us / max_pulse_us.
+        self.servo_max_angle = float(self.declare_parameter('servo_max_angle', 0.785398).value)
+        # Transmissió servo -> rodes: angle_rodes = K · sin(angle_servo), K en graus.
+        gain_deg = float(self.declare_parameter('wheel_angle_gain_deg', 24.52).value)
+        self.wheel_gain = math.radians(gain_deg)
+        # Angle màxim de les rodes que permet el recorregut del servo (sin és màxim a 90°).
+        self.max_angle = self.wheel_gain * math.sin(min(self.servo_max_angle, math.pi / 2))
+        # Amplada de pols per a -servo_max_angle, 0 i +servo_max_angle (microsegons).
         self.min_pulse_us = float(self.declare_parameter('min_pulse_us', 1000.0).value)
         self.center_pulse_us = float(self.declare_parameter('center_pulse_us', 1500.0).value)
         self.max_pulse_us = float(self.declare_parameter('max_pulse_us', 2000.0).value)
@@ -65,15 +74,24 @@ class Steering(Node):
         self.get_logger().info(
             f'Steering started: servo_pin={self.servo_pin} '
             f'pulses={self.min_pulse_us}/{self.center_pulse_us}/{self.max_pulse_us} us '
-            f'max_angle={math.degrees(self.max_angle):.0f} deg'
+            f'servo_max={math.degrees(self.servo_max_angle):.0f} deg '
+            f'wheel_max={math.degrees(self.max_angle):.1f} deg (K={gain_deg} deg)'
         )
 
     def callback_target(self, msg: Float32) -> None:
         if math.isfinite(msg.data):
             self.target_angle = max(-self.max_angle, min(self.max_angle, float(msg.data)))
 
-    def _pulse_us(self, angle: float) -> float:
-        t = angle / self.max_angle if self.max_angle > 0.0 else 0.0
+    def _servo_angle(self, wheel_angle: float) -> float:
+        """Inversa de angle_rodes = K · sin(angle_servo)."""
+        if self.wheel_gain <= 0.0:
+            return 0.0
+        return math.asin(max(-1.0, min(1.0, wheel_angle / self.wheel_gain)))
+
+    def _pulse_us(self, wheel_angle: float) -> float:
+        servo = self._servo_angle(wheel_angle)
+        t = servo / self.servo_max_angle if self.servo_max_angle > 0.0 else 0.0
+        t = max(-1.0, min(1.0, t))
         if self.invert:
             t = -t
         if t >= 0.0:

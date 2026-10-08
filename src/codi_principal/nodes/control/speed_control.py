@@ -117,6 +117,7 @@ class MyNode(Node):
         self.pid = PID(kp=kp, ki=ki, kd=kd, integral_limit=100.0 / max(ki, 1e-6))
 
         self.last_ticks = 0
+        self.last_time = None
 
         self.create_subscription(Float32, 'target_speed', self.target_callback, 10)
         self.speed_pub = self.create_publisher(Float32, 'wheel_speed', 10)
@@ -181,8 +182,14 @@ class MyNode(Node):
         delta_ticks = self.ticks - self.last_ticks
         self.last_ticks = self.ticks
 
+        # temps real entre crides (el timer pot tenir retard), no el període nominal
+        dt = self.period if self.last_time is None else (now - self.last_time).nanoseconds * 1e-9
+        self.last_time = now
+        if dt <= 0.0:
+            dt = self.period
+
         # l'encoder només té un canal llegit: el sentit és el de la comanda
-        rpm = (delta_ticks / self.PULSES_PER_REV) * (60 / self.period)
+        rpm = (delta_ticks / self.PULSES_PER_REV) * (60 / dt)
         if target < 0:
             rpm = -rpm
 

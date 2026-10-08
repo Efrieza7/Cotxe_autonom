@@ -1,3 +1,4 @@
+import math
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -14,7 +15,6 @@ from launch_ros.parameter_descriptions import ParameterValue
 # (car_simulator.launch.py i simulation_full.launch.py).
 # ---------------------------------------------------------------------------
 WHEELBASE = 0.18          # m, distància entre eixos
-MAX_STEER = 0.785398      # rad (45 deg)
 TARGET_SPEED = 0.5        # m/s
 LOOKAHEAD = 0.2           # m, pure pursuit
 
@@ -27,11 +27,19 @@ SERVO_PIN = 13
 SERVO_MIN_PULSE_US = 1000.0
 SERVO_CENTER_PULSE_US = 1500.0
 SERVO_MAX_PULSE_US = 2000.0
+SERVO_MAX_ANGLE = 0.785398  # rad (45 deg), angle del servo a min/max pulse
 SERVO_INVERT = False
+
+# Transmissió Ackermann-servomotor: angle_rodes = K · sin(angle_servo).
+WHEEL_ANGLE_GAIN_DEG = 24.52
+# Angle màxim de les rodes que permet el servo (~17.3 deg amb el servo a 45 deg).
+MAX_STEER = math.radians(WHEEL_ANGLE_GAIN_DEG) * math.sin(SERVO_MAX_ANGLE)  # rad
 
 # El LIDAR (LD500) és sobre l'eix davanter (rodes de gir): és el punt (0, 0)
 # de /pose. Només cal indicar si el seu zero no mira cap endavant.
 LIDAR_YAW_OFFSET = 0.0    # rad, positiu = cap a l'esquerra
+# Els punts del LIDAR més lluny d'això (m) s'ignoren al mapatge.
+LIDAR_MAX_RANGE = 2.0
 
 
 def generate_launch_description():
@@ -62,7 +70,8 @@ def generate_launch_description():
             package='my_pakage', executable='steering', name='steering', output='screen',
             parameters=[{
                 'servo_pin': SERVO_PIN,
-                'max_angle': MAX_STEER,
+                'servo_max_angle': SERVO_MAX_ANGLE,
+                'wheel_angle_gain_deg': WHEEL_ANGLE_GAIN_DEG,
                 'min_pulse_us': SERVO_MIN_PULSE_US,
                 'center_pulse_us': SERVO_CENTER_PULSE_US,
                 'max_pulse_us': SERVO_MAX_PULSE_US,
@@ -95,6 +104,7 @@ def generate_launch_description():
             parameters=[{
                 'wheelbase': WHEELBASE,
                 'lidar_yaw_offset': LIDAR_YAW_OFFSET,
+                'max_range': LIDAR_MAX_RANGE,
             }],
         ),
         Node(package='my_pakage', executable='lidar_processing', name='lidar_processing', output='screen'),

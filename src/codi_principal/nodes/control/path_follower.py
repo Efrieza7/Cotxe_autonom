@@ -51,34 +51,11 @@ class PathFollower(Node):
         self.get_logger().info('PathFollower started')
 
     def path_callback(self, msg: Float32MultiArray):
+        # path_planner_bridge publica [x0, y0, x1, y1, ...]; un valor sobrant s'ignora
         data = list(msg.data)
-        pts: List[Tuple[float, float]] = []
-
-        # tolerant parsing: handle [x,y,x,y,...] or [s,x,y,curv,...]
-        if len(data) == 0:
-            self.path = []
-            self.have_path = False
-            return
-
-        if len(data) % 2 == 0 and all(isinstance(v, (int, float)) for v in data):
-            # try treat as x,y pairs
-            possible_pairs = [(data[i], data[i+1]) for i in range(0, len(data), 2)]
-            # Heuristic: if many points, accept
-            pts = possible_pairs
-        else:
-            # fallback: try read as groups of 3 or 4: [s,x,y,...] or [x,y,curv,...]
-            group = 4 if len(data) % 4 == 0 else 3
-            usable = len(data) - (len(data) % group)
-            for i in range(0, usable, group):
-                # for group==4: [s,x,y,curv] -> take x,y
-                # for group==3: [x,y,count] -> take x,y
-                if group == 4:
-                    x = float(data[i+1])
-                    y = float(data[i+2])
-                else:
-                    x = float(data[i])
-                    y = float(data[i+1])
-                pts.append((x, y))
+        pts: List[Tuple[float, float]] = [
+            (float(data[i]), float(data[i + 1])) for i in range(0, len(data) - 1, 2)
+        ]
 
         self.path = pts
         self.have_path = len(self.path) > 0
