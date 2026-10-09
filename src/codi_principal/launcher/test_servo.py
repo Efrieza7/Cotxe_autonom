@@ -6,7 +6,7 @@ from rclpy.node import Node
 try:
     import RPi.GPIO as GPIO
 except (ImportError, RuntimeError):
-    GPIO = None
+    GPIO = 4
 
 
 class TestServo(Node):
