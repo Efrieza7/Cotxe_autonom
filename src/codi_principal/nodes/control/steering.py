@@ -33,7 +33,7 @@ class Steering(Node):
     def __init__(self):
         super().__init__('steering')
 
-        self.servo_pin = int(self.declare_parameter('servo_pin', 13).value)  # BCM
+        self.servo_pin = int(self.declare_parameter('servo_pin', 4).value)  # BCM (GPIO 4 = pin físic 7)
         # Angle del servo (rad) a min_pulse_us / max_pulse_us.
         self.servo_max_angle = float(self.declare_parameter('servo_max_angle', 0.785398).value)
         # Transmissió servo -> rodes: angle_rodes = K · sin(angle_servo), K en graus.

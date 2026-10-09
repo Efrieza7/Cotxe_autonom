@@ -24,7 +24,7 @@ class TestServo(Node):
     def __init__(self):
         super().__init__('test_servo')
 
-        self.servo_pin = int(self.declare_parameter('servo_pin', 13).value)  # BCM
+        self.servo_pin = int(self.declare_parameter('servo_pin', 4).value)  # BCM (GPIO 4 = pin físic 7)
         self.min_pulse_us = float(self.declare_parameter('min_pulse_us', 1000.0).value)
         self.center_pulse_us = float(self.declare_parameter('center_pulse_us', 1500.0).value)
         self.max_pulse_us = float(self.declare_parameter('max_pulse_us', 2000.0).value)

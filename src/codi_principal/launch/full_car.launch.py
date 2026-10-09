@@ -23,7 +23,7 @@ WHEEL_DIAMETER = 0.065    # m
 PULSES_PER_WHEEL_REV = 600.0
 
 # Servo de direcció (steering): pin BCM i amplades de pols a -45, 0 i +45 deg.
-SERVO_PIN = 13
+SERVO_PIN = 4             # BCM (GPIO 4 = pin físic 7)
 SERVO_MIN_PULSE_US = 1000.0
 SERVO_CENTER_PULSE_US = 1500.0
 SERVO_MAX_PULSE_US = 2000.0
