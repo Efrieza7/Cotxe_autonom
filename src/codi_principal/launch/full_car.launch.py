@@ -20,7 +20,23 @@ LOOKAHEAD = 0.2           # m, pure pursuit
 
 # Motor i encoder (speed_control). MESURA el diàmetre de la roda!
 WHEEL_DIAMETER = 0.065    # m
-PULSES_PER_WHEEL_REV = 600.0
+# Motor GA12-N20 amb encoder Hall: 7 polsos per volta de l'eix del motor
+# (fase A, flancs de pujada) x reducció de la caixa (1:30, 1:50, 1:100...,
+# mira el teu model). Comprova-ho girant la roda una volta amb test_motors.
+GEAR_RATIO = 600.0 / 7.0  # POSA LA REDUCCIÓ DEL TEU MOTOR
+PULSES_PER_WHEEL_REV = 7.0 * GEAR_RATIO
+
+# Driver DRV8833 (pins BCM). Motor A amb encoder, motor B sense.
+MOTOR_AIN1_PIN = 25
+MOTOR_AIN2_PIN = 8        # GPIO 8 = SPI0 CE0: cal tenir l'SPI desactivat
+MOTOR_BIN1_PIN = 24
+MOTOR_BIN2_PIN = 23
+ENCODER_A_PIN = 27
+ENCODER_B_PIN = 17
+# Ajusta-ho amb `ros2 run my_pakage test_motors` (cotxe aixecat).
+INVERT_MOTOR_A = False
+INVERT_MOTOR_B = False
+ENCODER_INVERT = False
 
 # Servo de direcció (steering): pin BCM i amplades de pols a -45, 0 i +45 deg.
 SERVO_PIN = 4             # BCM (GPIO 4 = pin físic 7)
@@ -84,6 +100,15 @@ def generate_launch_description():
             parameters=[{
                 'wheel_diameter': WHEEL_DIAMETER,
                 'pulses_per_wheel_rev': PULSES_PER_WHEEL_REV,
+                'ain1_pin': MOTOR_AIN1_PIN,
+                'ain2_pin': MOTOR_AIN2_PIN,
+                'bin1_pin': MOTOR_BIN1_PIN,
+                'bin2_pin': MOTOR_BIN2_PIN,
+                'enc_a_pin': ENCODER_A_PIN,
+                'enc_b_pin': ENCODER_B_PIN,
+                'invert_motor_a': INVERT_MOTOR_A,
+                'invert_motor_b': INVERT_MOTOR_B,
+                'encoder_invert': ENCODER_INVERT,
                 'max_speed': 1.0,
                 'dry_run': dry_run,
             }],

@@ -5,8 +5,10 @@ from rclpy.node import Node
 
 try:
     import RPi.GPIO as GPIO
-except (ImportError, RuntimeError):
-    GPIO = 4
+    GPIO_ERROR = None
+except (ImportError, RuntimeError) as e:
+    GPIO = None
+    GPIO_ERROR = e  # motiu pel qual no s'ha pogut carregar RPi.GPIO
 
 
 class TestServo(Node):
@@ -40,8 +42,10 @@ class TestServo(Node):
 
         self.pwm = None
         if GPIO is None:
-            self.get_logger().warning(
-                'RPi.GPIO no disponible: no es mourà cap servo, només es mostren els polsos'
+            self.get_logger().error(
+                f'No s\'ha pogut carregar RPi.GPIO ({type(GPIO_ERROR).__name__}: {GPIO_ERROR}). '
+                'No es mourà cap servo, només es mostren els polsos. '
+                'Prova: python3 -c "import RPi.GPIO"'
             )
         else:
             GPIO.setmode(GPIO.BCM)

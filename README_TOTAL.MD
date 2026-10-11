@@ -50,7 +50,7 @@
   - 9.2. Servomotor (falta el model)
 - 10\. CONTROLADORS
   - 10.1. Raspberry pi 4
-  - 10.2. Driver TB6612
+  - 10.2. Driver DRV8833
   - 10.3. Hobbywing BEC
   - 10.4. Bateries OVONIC LiPo
 - 11\. Explicació de ROS 2
@@ -533,9 +533,20 @@ Per exemple, pot rebre informació del LiDAR i detectar que hi ha un obstacle. E
 
 DATASHEET
 
-### 10.2. Driver TB6612
+### 10.2. Driver DRV8833
 
-El TB6612 és un controlador que serveix per controlar els motors. La Raspberry Pi envia les ordres al driver i aquest controla la velocitat i el sentit de gir dels motors.
+El DRV8833 és un controlador (doble pont H) que serveix per controlar els motors. La Raspberry Pi envia les ordres al driver i aquest controla la velocitat i el sentit de gir dels motors. No té pin de PWM separat: la velocitat es controla aplicant el PWM directament a les entrades xIN1/xIN2.
+
+| Senyal | GPIO (BCM) |
+|---|---|
+| AIN1 (motor A, amb encoder) | 25 |
+| AIN2 (motor A) | 8 |
+| BIN1 (motor B, sense encoder) | 24 |
+| BIN2 (motor B) | 23 |
+| Encoder fase A | 27 |
+| Encoder fase B | 17 |
+
+El pin STBY (nSLEEP) del DRV8833 està connectat a VM, de manera que el driver està sempre habilitat i no ocupa cap GPIO.
 
 Això permet que el cotxe pugui avançar, anar enrere o girar.
 

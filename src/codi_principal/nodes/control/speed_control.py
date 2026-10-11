@@ -11,6 +11,64 @@ except (ImportError, RuntimeError):
 
 
 # -------------------------
+# HARDWARE: DRV8833 + ENCODER
+# -------------------------
+class DRV8833Motor:
+    """Un canal del pont H DRV8833 (xIN1, xIN2).
+
+    El DRV8833 no té pin de PWM separat: la velocitat es controla posant el
+    PWM directament a les entrades. Endavant = PWM a IN1 i IN2 a 0; enrere =
+    IN1 a 0 i PWM a IN2; aturat = tots dos a 0 (roda lliure).
+    """
+
+    def __init__(self, in1, in2, frequency_hz=1000, invert=False):
+        if invert:
+            in1, in2 = in2, in1
+        self.pins = (in1, in2)
+        GPIO.setup(in1, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(in2, GPIO.OUT, initial=GPIO.LOW)
+        self.pwm1 = GPIO.PWM(in1, frequency_hz)
+        self.pwm2 = GPIO.PWM(in2, frequency_hz)
+        self.pwm1.start(0)
+        self.pwm2.start(0)
+
+    def set(self, duty):
+        """duty a [-100, 100] (%): signe = sentit de gir."""
+        duty = max(-100.0, min(100.0, duty))
+        if duty >= 0:
+            self.pwm2.ChangeDutyCycle(0)
+            self.pwm1.ChangeDutyCycle(duty)
+        else:
+            self.pwm1.ChangeDutyCycle(0)
+            self.pwm2.ChangeDutyCycle(-duty)
+
+    def stop(self):
+        self.pwm1.stop()
+        self.pwm2.stop()
+
+
+class QuadratureEncoder:
+    """Encoder de dues fases (A, B).
+
+    A cada flanc de pujada de A es mira B: segons el seu nivell el compte
+    suma o resta, així `ticks` té el signe del sentit real de gir. Si en
+    avançar el compte baixa, posa `invert=True`.
+    """
+
+    def __init__(self, pin_a, pin_b, invert=False):
+        self.pins = (pin_a, pin_b)
+        self.pin_b = pin_b
+        self.step = -1 if invert else 1
+        self.ticks = 0
+        GPIO.setup(pin_a, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(pin_b, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.add_event_detect(pin_a, GPIO.RISING, callback=self._callback)
+
+    def _callback(self, channel):
+        self.ticks += self.step if GPIO.input(self.pin_b) else -self.step
+
+
+# -------------------------
 # PID CLASS
 # -------------------------
 class PID:
@@ -51,8 +109,10 @@ class MyNode(Node):
     """Control de velocitat del motor de tracció.
 
     - Subscriu `target_speed` (Float32, m/s), publicat per `path_follower`.
-    - Llegeix l'encoder (canal A) i calcula les RPM de la roda.
-    - PID sobre RPM -> cicle de treball del PWM del pont H.
+    - Llegeix l'encoder en quadratura (fases A i B) i calcula les RPM de la
+      roda, amb signe.
+    - PID sobre RPM -> cicle de treball del PWM del DRV8833. Els dos motors
+      (A amb encoder, B sense) reben la mateixa comanda.
     - Publica `wheel_speed` (Float32, m/s) mesurada, per a `bicycle_model`.
     - Seguretat: si no arriba cap `target_speed` en `command_timeout_sec`,
       atura el motor.
@@ -79,37 +139,34 @@ class MyNode(Node):
         kd = float(self.declare_parameter('kd', 0.1).value)
         dry_run = bool(self.declare_parameter('dry_run', False).value)
 
-        # -------- GPIO CONFIG --------
-        self.PWM_PIN = int(self.declare_parameter('pwm_pin', 18).value)
-        self.IN1 = int(self.declare_parameter('in1_pin', 23).value)
-        self.IN2 = int(self.declare_parameter('in2_pin', 24).value)
+        # -------- GPIO CONFIG (BCM) --------
+        # DRV8833: motor A (AIN1, AIN2) i motor B (BIN1, BIN2).
+        self.AIN1 = int(self.declare_parameter('ain1_pin', 25).value)
+        self.AIN2 = int(self.declare_parameter('ain2_pin', 8).value)
+        self.BIN1 = int(self.declare_parameter('bin1_pin', 24).value)
+        self.BIN2 = int(self.declare_parameter('bin2_pin', 23).value)
+        pwm_frequency = float(self.declare_parameter('pwm_frequency_hz', 1000.0).value)
+        # Si un motor gira al revés, inverteix-lo aquí en lloc de recablejar.
+        invert_a = bool(self.declare_parameter('invert_motor_a', False).value)
+        invert_b = bool(self.declare_parameter('invert_motor_b', False).value)
 
-        self.ENC_A = int(self.declare_parameter('enc_a_pin', 17).value)
-        self.ENC_B = int(self.declare_parameter('enc_b_pin', 27).value)
+        self.ENC_A = int(self.declare_parameter('enc_a_pin', 27).value)
+        self.ENC_B = int(self.declare_parameter('enc_b_pin', 17).value)
+        encoder_invert = bool(self.declare_parameter('encoder_invert', False).value)
 
         self.hardware = not dry_run and GPIO is not None
         if self.hardware:
             GPIO.setmode(GPIO.BCM)
-
-            GPIO.setup(self.PWM_PIN, GPIO.OUT)
-            GPIO.setup(self.IN1, GPIO.OUT)
-            GPIO.setup(self.IN2, GPIO.OUT)
-
-            GPIO.setup(self.ENC_A, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            GPIO.setup(self.ENC_B, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-
-            self.pwm = GPIO.PWM(self.PWM_PIN, 1000)
-            self.pwm.start(0)
+            self.motors = [
+                DRV8833Motor(self.AIN1, self.AIN2, pwm_frequency, invert_a),
+                DRV8833Motor(self.BIN1, self.BIN2, pwm_frequency, invert_b),
+            ]
+            self.encoder = QuadratureEncoder(self.ENC_A, self.ENC_B, encoder_invert)
         else:
             self.get_logger().warning(
                 'speed_control en mode dry_run (sense RPi.GPIO o dry_run=True): '
                 'no es mou el motor, wheel_speed = target_speed'
             )
-
-        # -------- ENCODER --------
-        self.ticks = 0
-        if self.hardware:
-            GPIO.add_event_detect(self.ENC_A, GPIO.RISING, callback=self.encoder_callback)
 
         # -------- CONTROL --------
         self.target_speed = 0.0
@@ -133,9 +190,6 @@ class MyNode(Node):
     # -------------------------
     # CALLBACKS
     # -------------------------
-    def encoder_callback(self, channel):
-        self.ticks += 1
-
     def target_callback(self, msg: Float32):
         if math.isfinite(msg.data):
             self.target_speed = max(-self.max_speed, min(self.max_speed, float(msg.data)))
@@ -147,16 +201,8 @@ class MyNode(Node):
     def set_motor(self, speed):
         if not self.hardware:
             return
-        speed = max(min(speed, 100), -100)
-
-        if speed >= 0:
-            GPIO.output(self.IN1, True)
-            GPIO.output(self.IN2, False)
-            self.pwm.ChangeDutyCycle(speed)
-        else:
-            GPIO.output(self.IN1, False)
-            GPIO.output(self.IN2, True)
-            self.pwm.ChangeDutyCycle(-speed)
+        for motor in self.motors:
+            motor.set(speed)
 
     def rpm_to_speed(self, rpm):
         return rpm / 60.0 * math.pi * self.wheel_diameter
@@ -179,8 +225,9 @@ class MyNode(Node):
             self.speed_pub.publish(Float32(data=float(target)))
             return
 
-        delta_ticks = self.ticks - self.last_ticks
-        self.last_ticks = self.ticks
+        ticks = self.encoder.ticks
+        delta_ticks = ticks - self.last_ticks
+        self.last_ticks = ticks
 
         # temps real entre crides (el timer pot tenir retard), no el període nominal
         dt = self.period if self.last_time is None else (now - self.last_time).nanoseconds * 1e-9
@@ -188,10 +235,8 @@ class MyNode(Node):
         if dt <= 0.0:
             dt = self.period
 
-        # l'encoder només té un canal llegit: el sentit és el de la comanda
+        # amb signe: l'encoder en quadratura dona el sentit real de gir
         rpm = (delta_ticks / self.PULSES_PER_REV) * (60 / dt)
-        if target < 0:
-            rpm = -rpm
 
         if target == 0.0:
             self.pid.reset()
@@ -211,8 +256,9 @@ class MyNode(Node):
     # -------------------------
     def destroy_node(self):
         if self.hardware:
-            self.pwm.stop()
-            GPIO.cleanup([self.PWM_PIN, self.IN1, self.IN2, self.ENC_A, self.ENC_B])
+            for motor in self.motors:
+                motor.stop()
+            GPIO.cleanup([self.AIN1, self.AIN2, self.BIN1, self.BIN2, self.ENC_A, self.ENC_B])
         super().destroy_node()
 
 

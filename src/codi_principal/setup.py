@@ -76,6 +76,7 @@ setup(
             'speed_control = nodes.control.speed_control:main',
             'start_car = launcher.start_car:main',
             'test_servo = launcher.test_servo:main',
+            'test_motors = launcher.test_motors:main',
 
         ],
     },
