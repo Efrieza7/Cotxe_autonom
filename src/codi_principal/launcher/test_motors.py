@@ -1,3 +1,5 @@
+import time
+
 import rclpy
 from rclpy.node import Node
 
@@ -25,7 +27,7 @@ class TestMotors(Node):
         super().__init__('test_motors')
 
         ain1 = int(self.declare_parameter('ain1_pin', 25).value)
-        ain2 = int(self.declare_parameter('ain2_pin', 8).value)
+        ain2 = int(self.declare_parameter('ain2_pin', 22).value)
         bin1 = int(self.declare_parameter('bin1_pin', 24).value)
         bin2 = int(self.declare_parameter('bin2_pin', 23).value)
         enc_a = int(self.declare_parameter('enc_a_pin', 27).value)
@@ -37,6 +39,9 @@ class TestMotors(Node):
         # Cicle de treball (%) de la prova i durada de cada fase.
         duty = float(self.declare_parameter('duty', 30.0).value)
         self.phase_s = float(self.declare_parameter('phase_s', 2.0).value)
+        # Temps màxim de la prova (s): passat aquest temps s'aturen els
+        # motors encara que no s'hagin fet totes les fases.
+        self.max_run_s = float(self.declare_parameter('max_run_s', 5.0).value)
 
         self.phases = [('endavant', duty), ('aturat', 0.0), ('enrere', -duty), ('aturat', 0.0)]
         self.phase = -1
@@ -94,8 +99,12 @@ class TestMotors(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = TestMotors()
+    deadline = time.monotonic() + node.max_run_s
     try:
         while rclpy.ok() and not node.finished:
+            if time.monotonic() >= deadline:
+                node.get_logger().warn(f'Límit de temps ({node.max_run_s:.1f}s) assolit: aturant motors')
+                break
             rclpy.spin_once(node, timeout_sec=0.1)
     except KeyboardInterrupt:
         pass

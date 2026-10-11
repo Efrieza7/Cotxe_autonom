@@ -142,7 +142,7 @@ class MyNode(Node):
         # -------- GPIO CONFIG (BCM) --------
         # DRV8833: motor A (AIN1, AIN2) i motor B (BIN1, BIN2).
         self.AIN1 = int(self.declare_parameter('ain1_pin', 25).value)
-        self.AIN2 = int(self.declare_parameter('ain2_pin', 8).value)
+        self.AIN2 = int(self.declare_parameter('ain2_pin', 22).value)
         self.BIN1 = int(self.declare_parameter('bin1_pin', 24).value)
         self.BIN2 = int(self.declare_parameter('bin2_pin', 23).value)
         pwm_frequency = float(self.declare_parameter('pwm_frequency_hz', 1000.0).value)

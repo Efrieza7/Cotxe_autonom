@@ -28,7 +28,7 @@ PULSES_PER_WHEEL_REV = 7.0 * GEAR_RATIO
 
 # Driver DRV8833 (pins BCM). Motor A amb encoder, motor B sense.
 MOTOR_AIN1_PIN = 25
-MOTOR_AIN2_PIN = 8        # GPIO 8 = SPI0 CE0: cal tenir l'SPI desactivat
+MOTOR_AIN2_PIN = 22       # BCM (GPIO 22 = pin físic 15)
 MOTOR_BIN1_PIN = 24
 MOTOR_BIN2_PIN = 23
 ENCODER_A_PIN = 27
