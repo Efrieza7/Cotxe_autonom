@@ -17,7 +17,8 @@ fi
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Pins BCM de sortida (servo i DRV8833). Han de coincidir amb full_car.launch.py.
-CONFIG_LINE="gpio=4,5,6,16,26=op,dl"
+# pd: pull-down, perquè quan un programa allibera el pin (torna a entrada) quedi a 0.
+CONFIG_LINE="gpio=4,5,6,16,26=op,dl,pd"
 CONFIG_COMMENT="# Cotxe autonom: motors i servo a 0 en arrencar"
 
 if ! python3 -c "import RPi.GPIO" 2>/dev/null; then

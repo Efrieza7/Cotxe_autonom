@@ -25,6 +25,10 @@ class DRV8833Motor:
         if invert:
             in1, in2 = in2, in1
         self.pins = (in1, in2)
+        # Pull-down abans de fer-los sortida: quan el programa s'acaba, el
+        # kernel torna els pins a entrada i així queden a 0 (motor aturat).
+        GPIO.setup(in1, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(in2, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.setup(in1, GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(in2, GPIO.OUT, initial=GPIO.LOW)
         self.pwm1 = GPIO.PWM(in1, frequency_hz)
@@ -284,8 +288,8 @@ class MyNode(Node):
         if self.hardware:
             for motor in self.motors:
                 motor.stop()
-            # Els pins dels motors es queden com a sortides a 0: si es tornen
-            # entrades (cleanup), el DRV8833 pot llegir un 1 i el motor arrenca.
+            # Els pins dels motors no es netegen (cleanup): es queden a 0 i, quan
+            # el procés s'acaba, el pull-down de DRV8833Motor els manté a 0.
             GPIO.cleanup([self.ENC_A, self.ENC_B])
         super().destroy_node()
 

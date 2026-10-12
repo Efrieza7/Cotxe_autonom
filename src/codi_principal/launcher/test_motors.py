@@ -226,9 +226,9 @@ class TestMotors(Node):
                 pass
         self.motors = []
         self.servo = None
-        # Motors i servo NO es tornen a entrada (GPIO.cleanup()): amb els pins
-        # a l'aire el DRV8833 pot llegir un 1 i el motor arrenca quan s'acaba
-        # el programa. Es queden com a sortides a 0; només s'allibera l'encoder.
+        # Motors i servo no es netegen (GPIO.cleanup()): es queden a 0 i, quan
+        # el procés s'acaba, el pull-down de DRV8833Motor els manté a 0.
+        # Només s'allibera l'encoder.
         if self.encoder is not None:
             try:
                 GPIO.cleanup(list(self.encoder.pins))

@@ -60,6 +60,10 @@ def main(argv=None):
     inputs = [p for p in ALL_PINS if p not in outputs and p not in args.reserved]
     for pin in outputs:
         try:
+            # Primer el pull-down: quan aquest programa s'acaba, el kernel torna
+            # el pin a entrada, i sense pull-down es quedaria amb el pull-up per
+            # defecte dels GPIO 0-8 (motor engegat).
+            GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
             GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
             GPIO.output(pin, GPIO.LOW)
         except Exception as e:  # p. ex. pin ocupat per un altre procés
