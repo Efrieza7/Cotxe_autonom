@@ -27,10 +27,14 @@ GEAR_RATIO = 600.0 / 7.0  # POSA LA REDUCCIÓ DEL TEU MOTOR
 PULSES_PER_WHEEL_REV = 7.0 * GEAR_RATIO
 
 # Driver DRV8833 (pins BCM). Motor A amb encoder, motor B sense.
-MOTOR_AIN1_PIN = 25
-MOTOR_AIN2_PIN = 22       # BCM (GPIO 22 = pin físic 15)
-MOTOR_BIN1_PIN = 24
-MOTOR_BIN2_PIN = 23
+# NO facis servir els GPIO 8, 23, 24 ni 25: són de la Sense HAT (8 i 25
+# programen i reinicien el seu microcontrolador, 23 i 24 són interrupcions
+# de la IMU). Si es toquen, la matriu de LEDs no arrenca i els motors fan
+# coses estranyes.
+MOTOR_AIN1_PIN = 5        # BCM (GPIO 5 = pin físic 29)
+MOTOR_AIN2_PIN = 6        # BCM (GPIO 6 = pin físic 31)
+MOTOR_BIN1_PIN = 26       # BCM (GPIO 26 = pin físic 37)
+MOTOR_BIN2_PIN = 16       # BCM (GPIO 16 = pin físic 36)
 ENCODER_A_PIN = 27
 ENCODER_B_PIN = 17
 # Ajusta-ho amb `ros2 run my_pakage test_motors` (cotxe aixecat).

@@ -20,11 +20,13 @@ import sys
 # Pins BCM. Han de coincidir amb full_car.launch.py.
 OUTPUT_PINS = [
     4,                # servo de direcció
-    25, 22, 24, 23,   # DRV8833: AIN1, AIN2, BIN1, BIN2
+    5, 6, 26, 16,     # DRV8833: AIN1, AIN2, BIN1, BIN2
 ]
 RESERVED_PINS = [
     0, 1,             # ID EEPROM dels HAT
     2, 3,             # I2C (IMU / Sense HAT)
+    8, 25,            # Sense HAT: chip select i reset del microcontrolador dels LEDs
+    23, 24,           # Sense HAT: interrupcions de la IMU (són sortides de la IMU)
     14, 15,           # UART
 ]
 ALL_PINS = range(0, 28)  # GPIO 0..27 del connector de 40 pins

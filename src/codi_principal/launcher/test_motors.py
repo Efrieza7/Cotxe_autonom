@@ -39,10 +39,10 @@ class TestMotors(Node):
     def __init__(self):
         super().__init__('test_motors')
 
-        ain1 = int(self.declare_parameter('ain1_pin', 25).value)
-        ain2 = int(self.declare_parameter('ain2_pin', 22).value)
-        bin1 = int(self.declare_parameter('bin1_pin', 24).value)
-        bin2 = int(self.declare_parameter('bin2_pin', 23).value)
+        ain1 = int(self.declare_parameter('ain1_pin', 5).value)
+        ain2 = int(self.declare_parameter('ain2_pin', 6).value)
+        bin1 = int(self.declare_parameter('bin1_pin', 26).value)
+        bin2 = int(self.declare_parameter('bin2_pin', 16).value)
         enc_a = int(self.declare_parameter('enc_a_pin', 27).value)
         enc_b = int(self.declare_parameter('enc_b_pin', 17).value)
         servo_pin = int(self.declare_parameter('servo_pin', 4).value)

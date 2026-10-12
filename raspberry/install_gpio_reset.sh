@@ -17,7 +17,8 @@ fi
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Pins BCM de sortida (servo i DRV8833). Han de coincidir amb full_car.launch.py.
-CONFIG_LINE="gpio=4,22-25=op,dl"
+CONFIG_LINE="gpio=4,5,6,16,26=op,dl"
+CONFIG_COMMENT="# Cotxe autonom: motors i servo a 0 en arrencar"
 
 if ! python3 -c "import RPi.GPIO" 2>/dev/null; then
     echo "Falta RPi.GPIO. A Ubuntu 24.04 instal·la: sudo apt install python3-rpi-lgpio" >&2
@@ -31,7 +32,10 @@ if grep -qxF "$CONFIG_LINE" "$CONFIG_TXT"; then
     echo "$CONFIG_TXT ja té: $CONFIG_LINE"
 else
     cp "$CONFIG_TXT" "$CONFIG_TXT.bak"
-    printf '\n[all]\n# Cotxe autonom: motors i servo a 0 en arrencar\n%s\n' "$CONFIG_LINE" >> "$CONFIG_TXT"
+    # Treu la línia d'una instal·lació anterior (amb uns altres pins).
+    sed -i "/^$CONFIG_COMMENT\$/{n;/^gpio=.*=op,dl\$/d}" "$CONFIG_TXT"
+    sed -i "/^$CONFIG_COMMENT\$/d" "$CONFIG_TXT"
+    printf '\n[all]\n%s\n%s\n' "$CONFIG_COMMENT" "$CONFIG_LINE" >> "$CONFIG_TXT"
     echo "Afegit a $CONFIG_TXT (còpia a $CONFIG_TXT.bak): $CONFIG_LINE"
 fi
 
