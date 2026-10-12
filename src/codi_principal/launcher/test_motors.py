@@ -210,6 +210,10 @@ class TestMotors(Node):
                 motor.stop()
             except Exception:
                 pass
+        # La variable del bucle encara apunta a l'últim motor: s'esborra perquè
+        # els seus PWM es destrueixin ara i no en sortir de Python, quan
+        # rpi-lgpio ja no els pot aturar (TypeError).
+        motor = None
         if self.servo is not None:
             try:
                 self.servo.stop()
@@ -218,12 +222,15 @@ class TestMotors(Node):
                 pass
         self.motors = []
         self.servo = None
-        try:
-            # Els pins queden com a entrades: el DRV8833 té pull-down interns,
-            # així que els motors no es mouen.
-            GPIO.cleanup()
-        except Exception:
-            pass
+        # Motors i servo NO es tornen a entrada (GPIO.cleanup()): amb els pins
+        # a l'aire el DRV8833 pot llegir un 1 i el motor arrenca quan s'acaba
+        # el programa. Es queden com a sortides a 0; només s'allibera l'encoder.
+        if self.encoder is not None:
+            try:
+                GPIO.cleanup(list(self.encoder.pins))
+            except Exception:
+                pass
+            self.encoder = None
 
     def destroy_node(self):
         self.release_hardware()

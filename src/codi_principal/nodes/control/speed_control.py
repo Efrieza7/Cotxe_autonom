@@ -281,7 +281,9 @@ class MyNode(Node):
         if self.hardware:
             for motor in self.motors:
                 motor.stop()
-            GPIO.cleanup([self.AIN1, self.AIN2, self.BIN1, self.BIN2, self.ENC_A, self.ENC_B])
+            # Els pins dels motors es queden com a sortides a 0: si es tornen
+            # entrades (cleanup), el DRV8833 pot llegir un 1 i el motor arrenca.
+            GPIO.cleanup([self.ENC_A, self.ENC_B])
         super().destroy_node()
 
 
