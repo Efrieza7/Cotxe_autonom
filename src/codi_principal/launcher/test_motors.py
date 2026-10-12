@@ -3,6 +3,7 @@ import time
 
 import rclpy
 from rclpy.node import Node
+from std_msgs.msg import Bool
 
 from nodes.control.speed_control import GPIO, DRV8833Motor, QuadratureEncoder
 
@@ -80,6 +81,8 @@ class TestMotors(Node):
         self.servo = None
         self.finished = False
         self.state = None
+        # Per als LEDs d'estat (status_led): True mentre giren els motors.
+        self.moving_pub = self.create_publisher(Bool, 'car_moving', 10)
 
         if GPIO is None:
             self.get_logger().error(
@@ -156,6 +159,7 @@ class TestMotors(Node):
         if self.finished:
             return
         t = time.monotonic() - self.start
+        self.moving_pub.publish(Bool(data=self.ready_s <= t < self.ready_s + self.drive_s))
 
         if t < self.ready_s:
             self.set_state('PREPARAT')

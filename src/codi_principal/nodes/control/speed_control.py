@@ -2,7 +2,7 @@ import math
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float32
+from std_msgs.msg import Bool, Float32
 
 try:
     import RPi.GPIO as GPIO
@@ -201,6 +201,8 @@ class MyNode(Node):
 
         self.create_subscription(Float32, 'target_speed', self.target_callback, 10)
         self.speed_pub = self.create_publisher(Float32, 'wheel_speed', 10)
+        # Per als LEDs d'estat (status_led): True mentre els motors tenen comanda.
+        self.moving_pub = self.create_publisher(Bool, 'car_moving', 10)
 
         # timer ROS2
         self.timer = self.create_timer(self.period, self.timer_callback)
@@ -243,6 +245,7 @@ class MyNode(Node):
             or (now - self.last_command_time).nanoseconds * 1e-9 > self.command_timeout
         )
         target = 0.0 if timed_out else self.target_speed
+        self.moving_pub.publish(Bool(data=self.hardware and target != 0.0))
 
         if not self.hardware:
             self.speed_pub.publish(Float32(data=float(target)))

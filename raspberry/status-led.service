@@ -1,0 +1,21 @@
+# LEDs de la Sense HAT amb l'estat del cotxe (launcher/status_led.py).
+# S'instal·la amb: sudo ./raspberry/install_status_led.sh
+# (l'script substitueix @USER@ i @REPO_DIR@)
+[Unit]
+Description=LEDs de la Sense HAT amb l'estat del cotxe
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=@USER@
+# Si fas servir ROS_DOMAIN_ID (o altres variables de ROS) al teu .bashrc,
+# posa-les també aquí perquè el servei vegi els teus launch:
+# Environment=ROS_DOMAIN_ID=0
+ExecStart=/bin/bash -c 'source /opt/ros/jazzy/setup.bash && source @REPO_DIR@/install/setup.bash && exec ros2 run my_pakage status_led'
+# SIGINT perquè el node apagui els LEDs abans de sortir.
+KillSignal=SIGINT
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

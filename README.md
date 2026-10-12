@@ -52,6 +52,38 @@ colcon build --packages-select my_pakage && source install/setup.bash
 ros2 launch my_pakage test_motors.launch.py          # duty:=40.0 per anar més ràpid
 ```
 
+## Raspberry Pi sense monitor (SSH) i LEDs d'estat
+
+Per fer-la servir sense monitor ni teclat, des d'un altre ordinador (una sola vegada,
+a la Raspberry):
+
+```bash
+sudo apt install openssh-server
+sudo systemctl enable --now ssh
+sudo systemctl set-default multi-user.target   # opcional: no engega l'escriptori (més RAM i CPU)
+                                               # per tornar-lo a tenir: graphical.target
+```
+
+Després, des de l'ordinador (a la mateixa xarxa): `ssh frieza@frieza-desktop.local`
+(o amb la IP, que surt amb `hostname -I`).
+
+La matriu de LEDs de la Sense HAT mostra l'estat del cotxe
+(`src/codi_principal/launcher/status_led.py`):
+
+| LEDs | Estat |
+|---|---|
+| apagats | la Raspberry encara arrenca |
+| verd fix | preparada per fer qualsevol launch |
+| groc fix | s'executa un launch, el cotxe està aturat |
+| vermell parpellejant | el cotxe es mou (`speed_control` o `test_motors` publiquen `car_moving`) |
+
+S'instal·la una sola vegada, amb el workspace ja compilat:
+
+```bash
+sudo ./raspberry/install_status_led.sh
+journalctl -u status-led -f     # per veure què fa
+```
+
 ## Path Planning — bridge amb `ft-fsd-path-planning`
 
 El node de path planning fa de pont entre els tòpics reals del projecte i

@@ -79,6 +79,7 @@ setup(
             'test_servo = launcher.test_servo:main',
             'test_motors = launcher.test_motors:main',
             'gpio_reset = launcher.gpio_reset:main',
+            'status_led = launcher.status_led:main',
 
         ],
     },
