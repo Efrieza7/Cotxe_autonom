@@ -35,7 +35,21 @@ else
     echo "Afegit a $CONFIG_TXT (còpia a $CONFIG_TXT.bak): $CONFIG_LINE"
 fi
 
-# 2. Servei systemd
+# 2. Permisos: a Ubuntu /dev/gpiochip* només és de root i els nodes donen
+#    "can not open gpiochip". Es dona accés al grup gpio.
+groupadd -f gpio
+cat > /etc/udev/rules.d/99-gpio.rules <<'EOF'
+SUBSYSTEM=="gpio", KERNEL=="gpiochip*", GROUP="gpio", MODE="0660"
+EOF
+udevadm control --reload-rules
+udevadm trigger --subsystem-match=gpio
+if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then
+    usermod -aG gpio "$SUDO_USER"
+    echo "Usuari $SUDO_USER afegit al grup gpio (cal tornar a iniciar sessió)"
+fi
+ls -l /dev/gpiochip*
+
+# 3. Servei systemd
 install -m 755 "$REPO_DIR/src/codi_principal/launcher/gpio_reset.py" /usr/local/bin/gpio_reset.py
 install -m 644 "$REPO_DIR/raspberry/gpio-reset.service" /etc/systemd/system/gpio-reset.service
 systemctl daemon-reload

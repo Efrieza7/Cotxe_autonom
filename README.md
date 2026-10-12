@@ -31,12 +31,16 @@ sudo apt remove python3-rpi.gpio
 sudo apt install python3-rpi-lgpio
 ```
 
-Perquè en engegar o reiniciar la Raspberry cap motor es mogui (una sola vegada):
+Perquè en engegar o reiniciar la Raspberry cap motor es mogui, i perquè els
+nodes puguin fer servir els GPIO sense `sudo` (una sola vegada):
 
 ```bash
-sudo ./raspberry/install_gpio_reset.sh   # config.txt + servei gpio-reset
+sudo ./raspberry/install_gpio_reset.sh   # config.txt + permisos gpio + servei gpio-reset
 sudo reboot
 ```
+
+Si surt `can not open gpiochip`, l'usuari no té permís per obrir
+`/dev/gpiochip*`: torna a executar l'script i comprova que `groups` inclogui `gpio`.
 
 Si un motor es queda engegat: `sudo python3 src/codi_principal/launcher/gpio_reset.py`.
 

@@ -102,9 +102,14 @@ class TestMotors(Node):
             self.servo = GPIO.PWM(servo_pin, self.SERVO_PWM_HZ)
             self.servo.start(self._servo_duty(0.0))
         except Exception as e:
+            if 'gpiochip' in str(e):
+                # lgpio no pot obrir /dev/gpiochip*: falten permisos.
+                hint = ('L\'usuari no té permís per obrir /dev/gpiochip*: executa '
+                        '`sudo ./raspberry/install_gpio_reset.sh` i torna a iniciar sessió.')
+            else:
+                hint = 'Comprova que cap altre node (speed_control, steering) els estigui fent servir.'
             self.get_logger().error(
-                f'No s\'han pogut configurar els pins ({type(e).__name__}: {e}). '
-                'Comprova que cap altre node (speed_control, steering) els estigui fent servir.'
+                f'No s\'han pogut configurar els pins ({type(e).__name__}: {e}). {hint}'
             )
             self.release_hardware()
             self.finished = True
