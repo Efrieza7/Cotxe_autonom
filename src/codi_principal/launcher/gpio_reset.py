@@ -25,7 +25,9 @@ OUTPUT_PINS = [
 RESERVED_PINS = [
     0, 1,             # ID EEPROM dels HAT
     2, 3,             # I2C (IMU / Sense HAT)
-    8, 25,            # Sense HAT: chip select i reset del microcontrolador dels LEDs
+    7, 8, 9, 10, 11,  # SPI0 (actiu a Ubuntu: el kernel té ocupat el GPIO 7). La
+                      # Sense HAT el fa servir (amb el 25) per programar els LEDs
+    25,               # Sense HAT: reset del microcontrolador dels LEDs
     23, 24,           # Sense HAT: interrupcions de la IMU (són sortides de la IMU)
     14, 15,           # UART
 ]
