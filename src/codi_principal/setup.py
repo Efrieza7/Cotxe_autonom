@@ -33,6 +33,7 @@ setup(
                 'launch/full_car.launch.py',
                 'launch/simulation_mapping.launch.py',
                 'launch/simulation_full.launch.py',
+                'launch/test_motors.launch.py',
             ],
         ),
     ],
@@ -77,6 +78,7 @@ setup(
             'start_car = launcher.start_car:main',
             'test_servo = launcher.test_servo:main',
             'test_motors = launcher.test_motors:main',
+            'gpio_reset = launcher.gpio_reset:main',
 
         ],
     },

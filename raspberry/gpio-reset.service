@@ -1,0 +1,18 @@
+# Posa els GPIO de la Raspberry a 0 en arrencar i en apagar.
+# S'instal·la amb: sudo ./raspberry/install_gpio_reset.sh
+[Unit]
+Description=Posa els GPIO del cotxe a 0 (motors aturats, servo sense pols)
+DefaultDependencies=no
+After=local-fs.target systemd-udevd.service
+Before=basic.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /usr/local/bin/gpio_reset.py
+# També en apagar/reiniciar, per si un node s'havia quedat amb un motor engegat.
+ExecStop=/usr/bin/python3 /usr/local/bin/gpio_reset.py
+
+[Install]
+WantedBy=sysinit.target

@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""Posa tots els GPIO de la Raspberry a 0 (estat segur).
+
+No depèn de ROS, així es pot executar en arrencar/apagar la Raspberry amb el
+servei `raspberry/gpio-reset.service`, o a mà si un motor s'ha quedat engegat:
+
+    sudo python3 gpio_reset.py        # sense ROS
+    ros2 run my_pakage gpio_reset     # amb el workspace carregat
+
+- Pins que són SORTIDES del cotxe (motors i servo): sortida a 0.
+- La resta de pins lliures: entrada amb pull-down (es llegeixen com a 0).
+  No es posen com a sortida perquè si hi ha connectat un sensor que treu
+  tensió (p. ex. l'encoder), una sortida a 0 el curtcircuitaria.
+- Pins reservats: no es toquen (EEPROM dels HAT, I2C de la IMU/Sense HAT i
+  UART).
+"""
+import argparse
+import sys
+
+# Pins BCM. Han de coincidir amb full_car.launch.py.
+OUTPUT_PINS = [
+    4,                # servo de direcció
+    25, 22, 24, 23,   # DRV8833: AIN1, AIN2, BIN1, BIN2
+]
+RESERVED_PINS = [
+    0, 1,             # ID EEPROM dels HAT
+    2, 3,             # I2C (IMU / Sense HAT)
+    14, 15,           # UART
+]
+ALL_PINS = range(0, 28)  # GPIO 0..27 del connector de 40 pins
+
+
+def parse_pins(text):
+    return [int(p) for p in text.split(',') if p.strip()]
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument('--outputs', type=parse_pins, default=OUTPUT_PINS,
+                        help='pins (BCM) a posar com a sortida a 0, separats per comes')
+    parser.add_argument('--reserved', type=parse_pins, default=RESERVED_PINS,
+                        help='pins (BCM) que no es toquen, separats per comes')
+    args = parser.parse_args(argv)
+
+    try:
+        import RPi.GPIO as GPIO
+    except (ImportError, RuntimeError) as e:
+        print(f'gpio_reset: no es pot carregar RPi.GPIO ({e})', file=sys.stderr)
+        return 1
+
+    GPIO.setwarnings(False)
+    GPIO.setmode(GPIO.BCM)
+
+    errors = 0
+    outputs = [p for p in args.outputs if p not in args.reserved]
+    inputs = [p for p in ALL_PINS if p not in outputs and p not in args.reserved]
+    for pin in outputs:
+        try:
+            GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
+            GPIO.output(pin, GPIO.LOW)
+        except Exception as e:  # p. ex. pin ocupat per un altre procés
+            errors += 1
+            print(f'gpio_reset: GPIO {pin} (sortida): {e}', file=sys.stderr)
+    for pin in inputs:
+        try:
+            GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        except Exception as e:
+            errors += 1
+            print(f'gpio_reset: GPIO {pin} (entrada): {e}', file=sys.stderr)
+
+    # No es fa GPIO.cleanup(): tornaria les sortides a entrades. Els pins es
+    # queden a 0 quan s'acaba el programa.
+    print(f'gpio_reset: sortides a 0 {outputs}; entrades amb pull-down {inputs}; '
+          f'sense tocar {sorted(args.reserved)}')
+    return 1 if errors else 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

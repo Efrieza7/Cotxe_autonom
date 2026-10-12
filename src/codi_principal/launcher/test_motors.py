@@ -1,3 +1,4 @@
+import math
 import time
 
 import rclpy
@@ -5,23 +6,34 @@ from rclpy.node import Node
 
 from nodes.control.speed_control import GPIO, DRV8833Motor, QuadratureEncoder
 
+# Durada màxima de la prova (s). Mai es passa d'aquí, ni canviant paràmetres.
+MAX_TEST_S = 10.0
+
 
 class TestMotors(Node):
-    """Node de prova dels motors de tracció (DRV8833) i de l'encoder.
+    """Prova tipus "missió d'inspecció" de la Formula Student Driverless.
 
-    Sense PID: fa girar els motors endavant, els atura, enrere i els torna a
-    aturar, i mostra els ticks de l'encoder a cada fase. Serveix per
-    comprovar, amb el cotxe aixecat:
+    A la FS, a la inspecció el cotxe està aixecat, les rodes motrius giren i
+    la direcció es mou en forma de sinus; després el cotxe frena (EBS) i
+    passa a l'estat "finished". Aquí es fa el mateix en menys de 10 s:
 
-    - que els dos motors giren cap endavant a la fase "endavant"
-      (si no, `invert_motor_a` / `invert_motor_b`);
-    - que els ticks són positius endavant i negatius enrere
-      (si és al revés, `encoder_invert`);
-    - els polsos per volta de roda (`pulses_per_wheel_rev`): marca la roda,
-      fes-la girar a mà una volta i mira quants ticks surten (`duty:=0`).
+    1. preparat  (`ready_s`):  motors aturats, direcció centrada.
+    2. inspecció (`drive_s`):  els motors pugen a `duty` en `ramp_s` i la
+       direcció fa un sinus (`steer_amplitude`, `steer_period_s`).
+    3. frenada   (`brake_s`):  fre actiu del DRV8833 i direcció centrada.
+    4. acabat:   tots els pins a 0 i el node s'acaba.
 
-    Fa servir els mateixos pins per defecte que `speed_control`.
+    Cada segon mostra els ticks de l'encoder, que serveixen per comprovar:
+
+    - que els dos motors giren cap endavant (si no, `invert_motor_a` /
+      `invert_motor_b`);
+    - que els ticks són positius (si no, `encoder_invert`).
+
+    Fa servir els mateixos pins per defecte que `speed_control` i `steering`.
+    CAL TENIR EL COTXE AIXECAT: les rodes giren.
     """
+
+    SERVO_PWM_HZ = 50.0
 
     def __init__(self):
         super().__init__('test_motors')
@@ -32,85 +44,203 @@ class TestMotors(Node):
         bin2 = int(self.declare_parameter('bin2_pin', 23).value)
         enc_a = int(self.declare_parameter('enc_a_pin', 27).value)
         enc_b = int(self.declare_parameter('enc_b_pin', 17).value)
+        servo_pin = int(self.declare_parameter('servo_pin', 4).value)
         pwm_frequency = float(self.declare_parameter('pwm_frequency_hz', 1000.0).value)
         invert_a = bool(self.declare_parameter('invert_motor_a', False).value)
         invert_b = bool(self.declare_parameter('invert_motor_b', False).value)
         encoder_invert = bool(self.declare_parameter('encoder_invert', False).value)
-        # Cicle de treball (%) de la prova i durada de cada fase.
-        duty = float(self.declare_parameter('duty', 30.0).value)
-        self.phase_s = float(self.declare_parameter('phase_s', 2.0).value)
-        # Temps màxim de la prova (s): passat aquest temps s'aturen els
-        # motors encara que no s'hagin fet totes les fases.
-        self.max_run_s = float(self.declare_parameter('max_run_s', 5.0).value)
+        self.min_pulse_us = float(self.declare_parameter('min_pulse_us', 1000.0).value)
+        self.center_pulse_us = float(self.declare_parameter('center_pulse_us', 1500.0).value)
+        self.max_pulse_us = float(self.declare_parameter('max_pulse_us', 2000.0).value)
+        self.servo_invert = bool(self.declare_parameter('servo_invert', False).value)
+        # Per passar els ticks a m/s (opcional, només informatiu).
+        self.wheel_diameter = float(self.declare_parameter('wheel_diameter', 0.065).value)
+        self.pulses_per_rev = float(self.declare_parameter('pulses_per_wheel_rev', 600.0).value)
 
-        self.phases = [('endavant', duty), ('aturat', 0.0), ('enrere', -duty), ('aturat', 0.0)]
-        self.phase = -1
-        self.pins = [ain1, ain2, bin1, bin2, enc_a, enc_b]
+        # Perfil de la prova.
+        self.duty = max(0.0, min(100.0, float(self.declare_parameter('duty', 30.0).value)))
+        self.ramp_s = float(self.declare_parameter('ramp_s', 1.5).value)
+        self.steer_amplitude = float(self.declare_parameter('steer_amplitude', 0.6).value)
+        self.steer_period_s = float(self.declare_parameter('steer_period_s', 2.0).value)
+        self.ready_s = float(self.declare_parameter('ready_s', 1.0).value)
+        drive_s = float(self.declare_parameter('drive_s', 7.0).value)
+        self.brake_s = float(self.declare_parameter('brake_s', 1.0).value)
+        self.steer_amplitude = max(0.0, min(1.0, self.steer_amplitude))
+
+        # La prova sencera no pot passar de MAX_TEST_S (deixant 0.5 s de marge).
+        self.drive_s = max(0.0, min(drive_s, MAX_TEST_S - 0.5 - self.ready_s - self.brake_s))
+        if self.drive_s < drive_s:
+            self.get_logger().warn(f'drive_s retallat a {self.drive_s:.1f}s per no passar de {MAX_TEST_S:.0f}s')
+        self.end_s = self.ready_s + self.drive_s + self.brake_s
+
+        self.motor_pins = [ain1, ain2, bin1, bin2]
+        self.servo_pin = servo_pin
+        self.motors = []
+        self.encoder = None
+        self.servo = None
         self.finished = False
+        self.state = None
 
         if GPIO is None:
-            self.get_logger().error('RPi.GPIO no disponible: aquesta prova només funciona a la Raspberry')
+            self.get_logger().error(
+                'RPi.GPIO no disponible: aquesta prova només funciona a la Raspberry. '
+                'Prova: python3 -c "import RPi.GPIO"'
+            )
             self.finished = True
             return
 
-        GPIO.setmode(GPIO.BCM)
-        self.motors = [
-            DRV8833Motor(ain1, ain2, pwm_frequency, invert_a),
-            DRV8833Motor(bin1, bin2, pwm_frequency, invert_b),
-        ]
-        self.encoder = QuadratureEncoder(enc_a, enc_b, encoder_invert)
-        self.last_ticks = 0
+        # Si alguna cosa falla a mig configurar, es deixen els pins a 0
+        # abans de sortir (si no, un motor es podria quedar engegat).
+        try:
+            GPIO.setwarnings(False)
+            GPIO.setmode(GPIO.BCM)
+            self.motors = [
+                DRV8833Motor(ain1, ain2, pwm_frequency, invert_a),
+                DRV8833Motor(bin1, bin2, pwm_frequency, invert_b),
+            ]
+            GPIO.setup(servo_pin, GPIO.OUT, initial=GPIO.LOW)
+            self.servo = GPIO.PWM(servo_pin, self.SERVO_PWM_HZ)
+            self.servo.start(self._servo_duty(0.0))
+        except Exception as e:
+            self.get_logger().error(
+                f'No s\'han pogut configurar els pins ({type(e).__name__}: {e}). '
+                'Comprova que cap altre node (speed_control, steering) els estigui fent servir.'
+            )
+            self.release_hardware()
+            self.finished = True
+            return
+
+        try:
+            self.encoder = QuadratureEncoder(enc_a, enc_b, encoder_invert)
+        except Exception as e:
+            self.get_logger().warn(f'Prova sense encoder: {e}')
+            self.encoder = None
 
         self.get_logger().info(
-            f'TestMotors: A=({ain1},{ain2}) B=({bin1},{bin2}) encoder=({enc_a},{enc_b}) '
-            f'duty={duty:.0f}% fase={self.phase_s:.1f}s'
+            f'Inspecció: A=({ain1},{ain2}) B=({bin1},{bin2}) encoder=({enc_a},{enc_b}) '
+            f'servo={servo_pin} duty={self.duty:.0f}% durada={self.end_s:.1f}s. '
+            'COTXE AIXECAT!'
         )
-        self.next_phase()
-        self.timer = self.create_timer(self.phase_s, self.next_phase)
+        self.start = time.monotonic()
+        self.last_report = self.start
+        self.last_ticks = 0
+        self.create_timer(1.0 / self.SERVO_PWM_HZ, self.update)
 
-    def next_phase(self):
-        if self.phase >= 0:
-            ticks = self.encoder.ticks
-            name = self.phases[self.phase][0]
-            self.get_logger().info(f'  {name}: {ticks - self.last_ticks:+d} ticks (total {ticks:+d})')
-            self.last_ticks = ticks
+    # -------------------------
+    # SERVO
+    # -------------------------
+    def _servo_duty(self, t):
+        """t a [-1, 1]: -1 = min_pulse_us, 0 = centre, 1 = max_pulse_us."""
+        if self.servo_invert:
+            t = -t
+        if t >= 0.0:
+            pulse = self.center_pulse_us + t * (self.max_pulse_us - self.center_pulse_us)
+        else:
+            pulse = self.center_pulse_us + t * (self.center_pulse_us - self.min_pulse_us)
+        return 100.0 * pulse * self.SERVO_PWM_HZ / 1e6
 
-        self.phase += 1
-        if self.phase >= len(self.phases):
-            self.get_logger().info('Prova acabada')
-            self.timer.cancel()
+    # -------------------------
+    # MISSIÓ
+    # -------------------------
+    def set_state(self, state):
+        if state != self.state:
+            self.state = state
+            self.get_logger().info(f'Estat: {state}')
+
+    def update(self):
+        if self.finished:
+            return
+        t = time.monotonic() - self.start
+
+        if t < self.ready_s:
+            self.set_state('PREPARAT')
+            duty, steer = 0.0, 0.0
+        elif t < self.ready_s + self.drive_s:
+            self.set_state('INSPECCIÓ (motors + direcció en sinus)')
+            t_drive = t - self.ready_s
+            duty = self.duty * min(1.0, t_drive / self.ramp_s) if self.ramp_s > 0.0 else self.duty
+            steer = self.steer_amplitude * math.sin(2.0 * math.pi * t_drive / self.steer_period_s)
+        elif t < self.end_s:
+            self.set_state('FRENADA (EBS)')
+            for motor in self.motors:
+                motor.brake()
+            self.servo.ChangeDutyCycle(self._servo_duty(0.0))
+            self.report(t)
+            return
+        else:
+            self.report(t, force=True)
+            self.set_state('ACABAT')
             self.finished = True
             return
 
-        name, duty = self.phases[self.phase]
-        self.get_logger().info(f'{name} (duty {duty:+.0f}%)')
         for motor in self.motors:
             motor.set(duty)
+        self.servo.ChangeDutyCycle(self._servo_duty(steer))
+        self.report(t)
+
+    def report(self, t, force=False):
+        now = time.monotonic()
+        if self.encoder is None or (not force and now - self.last_report < 1.0):
+            return
+        ticks = self.encoder.ticks
+        dt = max(now - self.last_report, 1e-3)
+        rev_s = (ticks - self.last_ticks) / self.pulses_per_rev / dt
+        speed = rev_s * math.pi * self.wheel_diameter
+        self.get_logger().info(
+            f'  t={t:4.1f}s ticks={ticks - self.last_ticks:+6d} (total {ticks:+d}) '
+            f'~{rev_s * 60.0:+.0f} rpm roda, {speed:+.2f} m/s'
+        )
+        self.last_report = now
+        self.last_ticks = ticks
+
+    # -------------------------
+    # CLEANUP
+    # -------------------------
+    def release_hardware(self):
+        """Deixa motors i servo a 0 i allibera els pins (es pot cridar més d'un cop)."""
+        if GPIO is None:
+            return
+        for motor in self.motors:
+            try:
+                motor.stop()
+            except Exception:
+                pass
+        if self.servo is not None:
+            try:
+                self.servo.stop()
+                GPIO.output(self.servo_pin, GPIO.LOW)
+            except Exception:
+                pass
+        self.motors = []
+        self.servo = None
+        try:
+            # Els pins queden com a entrades: el DRV8833 té pull-down interns,
+            # així que els motors no es mouen.
+            GPIO.cleanup()
+        except Exception:
+            pass
 
     def destroy_node(self):
-        if GPIO is not None and hasattr(self, 'motors'):
-            for motor in self.motors:
-                motor.set(0)
-                motor.stop()
-            GPIO.cleanup(self.pins)
+        self.release_hardware()
         super().destroy_node()
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = TestMotors()
-    deadline = time.monotonic() + node.max_run_s
+    deadline = time.monotonic() + MAX_TEST_S
     try:
         while rclpy.ok() and not node.finished:
             if time.monotonic() >= deadline:
-                node.get_logger().warn(f'Límit de temps ({node.max_run_s:.1f}s) assolit: aturant motors')
+                node.get_logger().warn(f'Límit de {MAX_TEST_S:.0f}s assolit: aturant motors')
                 break
-            rclpy.spin_once(node, timeout_sec=0.1)
+            rclpy.spin_once(node, timeout_sec=0.05)
     except KeyboardInterrupt:
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

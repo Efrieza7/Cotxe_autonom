@@ -540,7 +540,7 @@ El DRV8833 és un controlador (doble pont H) que serveix per controlar els motor
 | Senyal | GPIO (BCM) |
 |---|---|
 | AIN1 (motor A, amb encoder) | 25 |
-| AIN2 (motor A) | 8 |
+| AIN2 (motor A) | 22 |
 | BIN1 (motor B, sense encoder) | 24 |
 | BIN2 (motor B) | 23 |
 | Encoder fase A | 27 |

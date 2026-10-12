@@ -42,9 +42,23 @@ class DRV8833Motor:
             self.pwm1.ChangeDutyCycle(0)
             self.pwm2.ChangeDutyCycle(-duty)
 
+    def brake(self):
+        """Fre actiu: IN1 = IN2 = 1 curtcircuita el motor (fre del DRV8833)."""
+        self.pwm1.ChangeDutyCycle(100)
+        self.pwm2.ChangeDutyCycle(100)
+
     def stop(self):
+        """Atura el PWM i deixa les dues entrades a 0.
+
+        Sense això, si el procés s'acaba amb el pin a 1, el pin es queda a 1
+        i el motor continua girant encara que el programa ja no existeixi.
+        """
+        self.pwm1.ChangeDutyCycle(0)
+        self.pwm2.ChangeDutyCycle(0)
         self.pwm1.stop()
         self.pwm2.stop()
+        for pin in self.pins:
+            GPIO.output(pin, GPIO.LOW)
 
 
 class QuadratureEncoder:
@@ -62,7 +76,16 @@ class QuadratureEncoder:
         self.ticks = 0
         GPIO.setup(pin_a, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         GPIO.setup(pin_b, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(pin_a, GPIO.RISING, callback=self._callback)
+        try:
+            GPIO.add_event_detect(pin_a, GPIO.RISING, callback=self._callback)
+        except RuntimeError as e:
+            # Error típic de RPi.GPIO amb kernels nous (Ubuntu 24.04, Pi OS
+            # Bookworm): "Failed to add edge detection".
+            raise RuntimeError(
+                f'No es pot llegir l\'encoder al GPIO {pin_a} ({e}). Amb kernels '
+                '>= 6.6 RPi.GPIO no detecta flancs: instal·la el substitut '
+                'compatible amb `sudo apt install python3-rpi-lgpio`'
+            ) from e
 
     def _callback(self, channel):
         self.ticks += self.step if GPIO.input(self.pin_b) else -self.step

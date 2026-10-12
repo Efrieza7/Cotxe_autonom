@@ -21,6 +21,33 @@ pip install -r src/codi_principal/nodes/path_planning/ft-fsd-path-planning-main/
 
 ```
 
+## Raspberry Pi: GPIO segurs i prova de motors
+
+A Ubuntu 24.04 (ROS 2 Jazzy) el paquet `RPi.GPIO` original no pot llegir
+l'encoder (`Failed to add edge detection`). Cal el substitut compatible:
+
+```bash
+sudo apt remove python3-rpi.gpio
+sudo apt install python3-rpi-lgpio
+```
+
+Perquè en engegar o reiniciar la Raspberry cap motor es mogui (una sola vegada):
+
+```bash
+sudo ./raspberry/install_gpio_reset.sh   # config.txt + servei gpio-reset
+sudo reboot
+```
+
+Si un motor es queda engegat: `sudo python3 src/codi_principal/launcher/gpio_reset.py`.
+
+Prova tipus missió d'inspecció (cotxe **aixecat**, menys de 10 s): els motors
+giren, la direcció fa un sinus, frena i s'atura.
+
+```bash
+colcon build --packages-select my_pakage && source install/setup.bash
+ros2 launch my_pakage test_motors.launch.py          # duty:=40.0 per anar més ràpid
+```
+
 ## Path Planning — bridge amb `ft-fsd-path-planning`
 
 El node de path planning fa de pont entre els tòpics reals del projecte i
