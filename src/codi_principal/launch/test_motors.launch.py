@@ -2,6 +2,7 @@
 
     ros2 launch my_pakage test_motors.launch.py
     ros2 launch my_pakage test_motors.launch.py duty:=40.0
+    ros2 launch my_pakage test_motors.launch.py steer_amplitude:=0.0   # direcció quieta
 
 COTXE AIXECAT: les rodes giren. No es pot executar alhora que full_car
 (els dos fan servir els mateixos pins).
@@ -26,6 +27,7 @@ _spec.loader.exec_module(car)
 
 def generate_launch_description():
     duty = ParameterValue(LaunchConfiguration('duty'), value_type=float)
+    steer_amplitude = ParameterValue(LaunchConfiguration('steer_amplitude'), value_type=float)
 
     test_motors = Node(
         package='my_pakage', executable='test_motors', name='test_motors', output='screen',
@@ -47,6 +49,7 @@ def generate_launch_description():
             'wheel_diameter': car.WHEEL_DIAMETER,
             'pulses_per_wheel_rev': car.PULSES_PER_WHEEL_REV,
             'duty': duty,
+            'steer_amplitude': steer_amplitude,
         }],
         # Quan acaba la prova, s'acaba el launch.
         on_exit=Shutdown(),
@@ -54,5 +57,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument('duty', default_value='30.0', description='PWM dels motors (%)'),
+        DeclareLaunchArgument('steer_amplitude', default_value='0.6',
+                              description='Amplitud del sinus de la direcció (0 a 1; 0 = direcció quieta)'),
         test_motors,
     ])
