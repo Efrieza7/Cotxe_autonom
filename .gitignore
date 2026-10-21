@@ -12,3 +12,17 @@ __pycache__/
 build/
 install/
 log/
+
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.lof
+*.lot
+*.toc
+*.out
+*.pdf
+*.tex
+*.aux
+*.synctex.gz
+imatges/

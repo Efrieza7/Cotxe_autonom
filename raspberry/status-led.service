@@ -11,6 +11,11 @@ User=@USER@
 # Si fas servir ROS_DOMAIN_ID (o altres variables de ROS) al teu .bashrc,
 # posa-les també aquí perquè el servei vegi els teus launch:
 # Environment=ROS_DOMAIN_ID=0
+# Sense pantalla HDMI, la matriu de la Sense HAT és /dev/fb0 i la consola de
+# text del kernel s'hi dibuixa a sobre (el cursor fa parpellejar els LEDs).
+# En aquest cas es desconnecta la consola del framebuffer. El + fa que
+# s'executi com a root encara que el servei sigui de @USER@.
+ExecStartPre=+/bin/sh -c 'grep -qx "RPi-Sense FB" /sys/class/graphics/fb0/name || exit 0; for d in /sys/class/vtconsole/vtcon*; do grep -q "frame buffer" $d/name && echo 0 > $d/bind; done; true'
 ExecStart=/bin/bash -c 'source /opt/ros/jazzy/setup.bash && source @REPO_DIR@/install/setup.bash && exec ros2 run my_pakage status_led'
 # SIGINT perquè el node apagui els LEDs abans de sortir.
 KillSignal=SIGINT
