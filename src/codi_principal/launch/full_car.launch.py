@@ -38,7 +38,7 @@ MOTOR_BIN2_PIN = 16       # BCM (GPIO 16 = pin físic 36)
 ENCODER_A_PIN = 27
 ENCODER_B_PIN = 17
 # Ajusta-ho amb `ros2 run my_pakage test_motors` (cotxe aixecat).
-INVERT_MOTOR_A = False
+INVERT_MOTOR_A = True
 INVERT_MOTOR_B = False
 ENCODER_INVERT = False
 
