@@ -119,7 +119,9 @@ def generate_launch_description():
                 'dry_run': dry_run,
             }],
         ),
-        Node(package='my_pakage', executable='motor_reader', name='motor_reader', output='screen'),
+        # motor_reader no es llança: el seu port per defecte (/dev/ttyUSB0) és el
+        # del LIDAR i el reconfigura a 9600 baud. La velocitat ja surt de
+        # speed_control (wheel_speed, encoder).
         Node(package='my_pakage', executable='imu_reader', name='imu_reader', output='screen'),
 
         # --- Localització ---
