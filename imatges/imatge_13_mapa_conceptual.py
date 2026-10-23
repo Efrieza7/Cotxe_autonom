@@ -1,19 +1,25 @@
 """Genera el mapa conceptual del sistema (Imatge 13 del document).
 
 Executar des de la carpeta `imatges/`:
-    python3 imatge_13_mapa_conceptual.py
+    python3 imatge_13_mapa_conceptual.py          # fons blanc (document)
+    python3 imatge_13_mapa_conceptual.py --fosc   # fons blau fosc, vores i línies blanques
 
 Les coordenades són en píxels d'un llenç de 2000 x 851 (origen a dalt a l'esquerra).
 """
+import sys
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Polygon, Rectangle
 
-OUT = 'imatge_13_mapa_conceptual.png'
+FOSC = '--fosc' in sys.argv
+OUT = 'imatge_13_mapa_conceptual_fosc.png' if FOSC else 'imatge_13_mapa_conceptual.png'
 
 W, H = 2000, 851
-INK = '#333333'
+BG = '#142843' if FOSC else 'white'     # fons
+INK = 'white' if FOSC else '#333333'    # vores, fletxes i línies
+TXT = 'white' if FOSC else 'black'      # text sobre el fons (etiquetes de la llegenda)
 COLORS = {
     'location': '#dff5dd',
     'mapping': '#dcdcf8',
@@ -21,6 +27,16 @@ COLORS = {
     'path': '#fdf39c',
     'none': '#ffffff',
 }
+if FOSC:
+    # Versió fosca de cada color perquè el text blanc es llegeixi bé
+    COLORS = {
+        'location': '#2f7d4a',
+        'mapping': '#5b54a8',
+        'control': '#a83a3a',
+        'path': '#8a6d00',
+        'none': '#2f4670',
+    }
+TXT_IN = 'white' if FOSC else None      # text dins de les formes (None = negre per defecte)
 FONT = 11
 
 # Estils de fletxa (vegeu la llegenda)
@@ -50,7 +66,7 @@ def node(key, x, y, label, color):
                        boxstyle=f'round,pad=0,rounding_size={h / 2}',
                        fc=COLORS[color], ec=INK, lw=1.2, zorder=3)
     ax.add_patch(p)
-    ax.text(x, y, label, ha='center', va='center', fontsize=FONT, zorder=4)
+    ax.text(x, y, label, ha='center', va='center', fontsize=FONT, zorder=4, color=TXT_IN)
     shapes[key] = p
 
 
@@ -62,7 +78,7 @@ def topic(key, x, y, label, color):
     p = Polygon([(x, y - h / 2), (x + w / 2, y), (x, y + h / 2), (x - w / 2, y)],
                 closed=True, fc=COLORS[color], ec=INK, lw=1.2, zorder=3)
     ax.add_patch(p)
-    ax.text(x, y, label, ha='center', va='center', fontsize=FONT, zorder=4, linespacing=1.4)
+    ax.text(x, y, label, ha='center', va='center', fontsize=FONT, zorder=4, linespacing=1.4, color=TXT_IN)
     shapes[key] = p
 
 
@@ -74,7 +90,7 @@ def actuator(key, x, y, label):
                  (x + w / 2 - c, y + h / 2), (x - w / 2 + c, y + h / 2), (x - w / 2, y)],
                 closed=True, fc=COLORS['none'], ec=INK, lw=1.2, zorder=3)
     ax.add_patch(p)
-    ax.text(x, y, label, ha='center', va='center', fontsize=FONT, zorder=4, linespacing=1.4)
+    ax.text(x, y, label, ha='center', va='center', fontsize=FONT, zorder=4, linespacing=1.4, color=TXT_IN)
     shapes[key] = p
 
 
@@ -82,7 +98,7 @@ def block(x, y, label, color):
     """Quadre de color de la llegenda."""
     w, h = 105, 78
     ax.add_patch(Rectangle((x - w / 2, y - h / 2), w, h, fc=COLORS[color], ec=INK, lw=1.2, zorder=3))
-    ax.text(x, y, label, ha='center', va='center', fontsize=FONT, zorder=4)
+    ax.text(x, y, label, ha='center', va='center', fontsize=FONT, zorder=4, color=TXT_IN)
 
 
 def edge(a, b, style, rad=0.0):
@@ -112,8 +128,8 @@ def polyline(points, style, label=None, label_at=None):
     ax.add_patch(FancyArrowPatch(points[-2], points[-1], arrowstyle='-|>,head_length=7,head_width=3.5',
                                  color=INK, lw=1.2, linestyle=style, zorder=2, shrinkA=0, shrinkB=0))
     if label:
-        ax.text(*label_at, label, ha='center', va='center', fontsize=9, fontweight='bold',
-                bbox=dict(fc='white', ec='none', pad=1.5), zorder=4)
+        ax.text(*label_at, label, ha='center', va='center', fontsize=9, fontweight='bold', color=TXT,
+                bbox=dict(fc=BG, ec='none', pad=1.5), zorder=4)
 
 
 # ---------------------------------------------------------------- llegenda
@@ -193,5 +209,5 @@ edge('speed_control', 'motor_driver', SOLID)
 edge('steering', 'steering_angle', DASHED)
 edge('steering_angle', 'steering_motor', SOLID)
 
-fig.savefig(OUT, dpi=150, facecolor='white')
+fig.savefig(OUT, dpi=150, facecolor=BG)
 print('Guardat', OUT)

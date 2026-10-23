@@ -50,6 +50,7 @@ giren, la direcció fa un sinus, frena i s'atura.
 ```bash
 colcon build --packages-select my_pakage && source install/setup.bash
 ros2 launch my_pakage test_motors.launch.py          # duty:=40.0 per anar més ràpid
+ros2 launch my_pakage test_motors.launch.py steer_amplitude:=0.0   # sense moure la direcció
 ```
 
 ## Raspberry Pi sense monitor (SSH) i LEDs d'estat
