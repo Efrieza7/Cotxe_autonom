@@ -57,7 +57,9 @@ MAX_STEER = math.radians(WHEEL_ANGLE_GAIN_DEG) * math.sin(SERVO_MAX_ANGLE)  # ra
 
 # El LIDAR (LD500) és sobre l'eix davanter (rodes de gir): és el punt (0, 0)
 # de /pose. Només cal indicar si el seu zero no mira cap endavant.
-LIDAR_YAW_OFFSET = 0.0    # rad, positiu = cap a l'esquerra
+# Està muntat girat 90 deg en sentit antihorari: el seu zero mira cap a
+# l'esquerra del cotxe.
+LIDAR_YAW_OFFSET = math.radians(90.0)    # rad, positiu = cap a l'esquerra
 # Els punts del LIDAR més lluny d'això (m) s'ignoren al mapatge.
 LIDAR_MAX_RANGE = 2.0
 
