@@ -9,17 +9,29 @@ Provo el sistema en simulació i en pista reduïda per validar detecció, estima
 ```bash
 source /opt/ros/jazzy/setup.bash && 
 source install/setup.bash 
-
-# crear venv nou
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-# instal·lar les deps del planner
-pip install -r src/codi_principal/nodes/path_planning/ft-fsd-path-planning-main/requirements.txt
-# instal·lar altres deps del projecte (si tens un requirements global)
-# pip install -r requirements.txt
-
 ```
+
+## Entorn de Python del path planning (`.venv`)
+
+`path_planner_bridge` necessita llibreries que no venen amb ROS 2 (numba,
+scikit-learn...). Van en un `.venv` a l'arrel del workspace (`~/Cotxe_autonom/.venv`):
+el bridge el busca allà i l'afegeix sol, no cal activar-lo per fer `ros2 launch`.
+
+Per crear-lo, o refer-lo si està corrupte (p. ex. `invalid ELF header`):
+
+```bash
+cd ~/Cotxe_autonom
+deactivate 2>/dev/null; rm -rf .venv
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
+# comprovació: ha d'escriure "OK"
+.venv/bin/python -c "import numpy, scipy.special, sklearn, numba; print('OK')"
+```
+
+La primera vegada que el bridge planifica, numba compila (~2 min a la
+Raspberry). Després queda guardat a `~/.cache/cotxe_autonom/numba`; si es refà
+el `.venv`, esborra també aquesta carpeta (`rm -rf ~/.cache/cotxe_autonom/numba`).
 
 ## Raspberry Pi: GPIO segurs i prova de motors
 

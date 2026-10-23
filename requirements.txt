@@ -1,0 +1,13 @@
+# Dependències de Python del cotxe que no venen amb ROS 2 (les fa servir
+# path_planner_bridge, a través de ft-fsd-path-planning). S'instal·len al .venv
+# de l'arrel del workspace: el bridge el busca allà.
+#
+# No s'hi posa el requirements.txt de ft-fsd-path-planning-main perquè
+# inclou streamlit, plotly i matplotlib (només per a la demo), que pesen molt
+# i alenteixen la instal·lació a la Raspberry.
+numpy<2          # numba<0.60 no és compatible amb numpy 2
+numba<0.60
+scipy
+scikit-learn
+icecream
+typing_extensions

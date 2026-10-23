@@ -18,13 +18,17 @@ WHEELBASE = 0.18          # m, distància entre eixos
 TARGET_SPEED = 0.5        # m/s
 LOOKAHEAD = 0.2           # m, pure pursuit
 
-# Motor i encoder (speed_control). MESURA el diàmetre de la roda!
-WHEEL_DIAMETER = 0.065    # m
-# Motor GA12-N20 amb encoder Hall: 7 polsos per volta de l'eix del motor
-# (fase A, flancs de pujada) x reducció de la caixa (1:30, 1:50, 1:100...,
-# mira el teu model). Comprova-ho girant la roda una volta amb test_motors.
-GEAR_RATIO = 600.0 / 7.0  # POSA LA REDUCCIÓ DEL TEU MOTOR
-PULSES_PER_WHEEL_REV = 7.0 * GEAR_RATIO
+# Motor i encoder (speed_control).
+WHEEL_DIAMETER = 0.053    # m
+# Motor GA12-N20 amb encoder Hall: 7 polsos per volta del motor intern (fase A,
+# flancs de pujada) x la reducció de la caixa. El motor és de 150 rpm a 6 V,
+# que correspon a 1:100 (amb test_motors al 100 % es mesuren ~1470 polsos/s,
+# ~700 per volta de l'eix de sortida a ~125 rpm amb 5 V).
+GEAR_RATIO = 100.0
+# Voltes de roda per cada volta de l'eix del motor: x5 als engranatges vermells
+# i /2 al diferencial (corona / pinyó).
+WHEEL_TURNS_PER_MOTOR_TURN = 2.5
+PULSES_PER_WHEEL_REV = 7.0 * GEAR_RATIO / WHEEL_TURNS_PER_MOTOR_TURN  # 280
 
 # Driver DRV8833 (pins BCM). Motor A amb encoder, motor B sense.
 # NO facis servir els GPIO 8, 23, 24 ni 25: són de la Sense HAT (8 i 25
@@ -49,6 +53,11 @@ SERVO_CENTER_PULSE_US = 1500.0
 SERVO_MAX_PULSE_US = 2000.0
 SERVO_MAX_ANGLE = 0.785398  # rad (45 deg), angle del servo a min/max pulse
 SERVO_INVERT = False
+# Suavitzat de la direcció (steering): velocitat màxima de gir de les rodes,
+# filtre passa-baix de l'ordre i zona morta per ignorar correccions petites.
+STEER_MAX_RATE = 1.0          # rad/s
+STEER_SMOOTHING_TIME = 0.3    # s
+STEER_DEADBAND = 0.01         # rad (~0.6 deg)
 
 # Transmissió Ackermann-servomotor: angle_rodes = K · sin(angle_servo).
 WHEEL_ANGLE_GAIN_DEG = 24.52
@@ -98,6 +107,9 @@ def generate_launch_description():
                 'center_pulse_us': SERVO_CENTER_PULSE_US,
                 'max_pulse_us': SERVO_MAX_PULSE_US,
                 'invert': SERVO_INVERT,
+                'max_delta_per_sec': STEER_MAX_RATE,
+                'smoothing_time_sec': STEER_SMOOTHING_TIME,
+                'deadband_rad': STEER_DEADBAND,
                 'dry_run': dry_run,
             }],
         ),

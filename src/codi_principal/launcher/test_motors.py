@@ -55,8 +55,8 @@ class TestMotors(Node):
         self.max_pulse_us = float(self.declare_parameter('max_pulse_us', 2000.0).value)
         self.servo_invert = bool(self.declare_parameter('servo_invert', False).value)
         # Per passar els ticks a m/s (opcional, només informatiu).
-        self.wheel_diameter = float(self.declare_parameter('wheel_diameter', 0.065).value)
-        self.pulses_per_rev = float(self.declare_parameter('pulses_per_wheel_rev', 600.0).value)
+        self.wheel_diameter = float(self.declare_parameter('wheel_diameter', 0.053).value)
+        self.pulses_per_rev = float(self.declare_parameter('pulses_per_wheel_rev', 280.0).value)
 
         # Perfil de la prova.
         self.duty = max(0.0, min(100.0, float(self.declare_parameter('duty', 30.0).value)))
@@ -184,6 +184,8 @@ class TestMotors(Node):
 
         for motor in self.motors:
             motor.set(duty)
+        if self.encoder is not None and duty != 0.0:
+            self.encoder.direction = 1 if duty > 0.0 else -1
         self.servo.ChangeDutyCycle(self._servo_duty(steer))
         self.report(t)
 

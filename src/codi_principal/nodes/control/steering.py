@@ -18,7 +18,9 @@ class Steering(Node):
     - Converteix l'angle de les rodes en angle del servo amb la transmissió
       Ackermann-servomotor: angle_rodes = K · sin(angle_servo), on K és
       `wheel_angle_gain_deg` (el màxim teòric, amb el servo a 90°).
-    - Aplica un limitador de velocitat (slew rate) per evitar salts bruscos.
+    - Suavitza l'ordre per evitar canvis bruscos: filtre passa-baix
+      (`smoothing_time_sec`), zona morta per ignorar correccions petites
+      (`deadband_rad`) i límit de velocitat de gir (`max_delta_per_sec`).
     - Genera el PWM del servo directament des d'un GPIO de la Raspberry
       (50 Hz, amplada de pols entre `min_pulse_us` i `max_pulse_us`).
     - Publica a `steering_angle` (Float32, radians) l'angle de les rodes
@@ -47,11 +49,17 @@ class Steering(Node):
         self.max_pulse_us = float(self.declare_parameter('max_pulse_us', 2000.0).value)
         # True si el servo gira al revés (pols més llarg = dreta).
         self.invert = bool(self.declare_parameter('invert', False).value)
-        self.max_delta_per_sec = float(self.declare_parameter('max_delta_per_sec', 6.0).value)  # rad/s
+        # Velocitat màxima de gir de les rodes (rad/s): 1.0 = d'un extrem a l'altre (~0.6 rad) en ~0.6 s.
+        self.max_delta_per_sec = float(self.declare_parameter('max_delta_per_sec', 1.0).value)
+        # Constant de temps del filtre passa-baix de l'ordre (s). 0 = sense filtre.
+        self.smoothing_time = float(self.declare_parameter('smoothing_time_sec', 0.3).value)
+        # Correccions més petites que això (rad, ~0.6 deg) no mouen el servo.
+        self.deadband = float(self.declare_parameter('deadband_rad', 0.01).value)
         self.update_rate_hz = float(self.declare_parameter('update_rate_hz', 50.0).value)
         dry_run = bool(self.declare_parameter('dry_run', False).value)
 
         self.target_angle = 0.0
+        self.filtered_angle = 0.0
         self.current_angle = 0.0
         self.last_time = self.get_clock().now()
 
@@ -110,9 +118,16 @@ class Steering(Node):
         dt = (now - self.last_time).nanoseconds * 1e-9
         self.last_time = now
 
-        max_delta = self.max_delta_per_sec * max(dt, 0.0)
-        delta = self.target_angle - self.current_angle
-        self.current_angle += max(-max_delta, min(max_delta, delta))
+        dt = max(dt, 0.0)
+        if self.smoothing_time > 0.0:
+            self.filtered_angle += (self.target_angle - self.filtered_angle) * min(1.0, dt / self.smoothing_time)
+        else:
+            self.filtered_angle = self.target_angle
+
+        delta = self.filtered_angle - self.current_angle
+        if abs(delta) > self.deadband:
+            max_delta = self.max_delta_per_sec * dt
+            self.current_angle += max(-max_delta, min(max_delta, delta))
 
         duty = round(self._duty_cycle(self.current_angle), 2)
         if self.pwm is not None and duty != self.last_duty:
