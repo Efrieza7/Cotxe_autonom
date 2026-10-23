@@ -66,6 +66,9 @@ class Steering(Node):
             GPIO.setup(self.servo_pin, GPIO.OUT)
             self.pwm = GPIO.PWM(self.servo_pin, self.PWM_FREQUENCY_HZ)
             self.pwm.start(self._duty_cycle(0.0))
+        # Últim duty enviat: amb rpi-lgpio cada ChangeDutyCycle reinicia el PWM i
+        # el servo fa espasmes, així que només s'envia quan canvia.
+        self.last_duty = self._duty_cycle(0.0)
 
         self.create_subscription(Float32, 'target_angle', self.callback_target, 10)
         self.pub = self.create_publisher(Float32, 'steering_angle', 10)
@@ -111,8 +114,10 @@ class Steering(Node):
         delta = self.target_angle - self.current_angle
         self.current_angle += max(-max_delta, min(max_delta, delta))
 
-        if self.pwm is not None:
-            self.pwm.ChangeDutyCycle(self._duty_cycle(self.current_angle))
+        duty = round(self._duty_cycle(self.current_angle), 2)
+        if self.pwm is not None and duty != self.last_duty:
+            self.pwm.ChangeDutyCycle(duty)
+            self.last_duty = duty
 
         self.pub.publish(Float32(data=float(self.current_angle)))
 
