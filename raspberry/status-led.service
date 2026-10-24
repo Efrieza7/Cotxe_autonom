@@ -18,8 +18,9 @@ User=@USER@
 ExecStartPre=+/bin/sh -c 'grep -qx "RPi-Sense FB" /sys/class/graphics/fb0/name || exit 0; for d in /sys/class/vtconsole/vtcon*; do grep -q "frame buffer" $d/name && echo 0 > $d/bind; done; true'
 # network-online.target no sempre espera el WiFi. Si el node de ROS arrenca
 # abans que la xarxa estigui activa, després no veu els nodes dels launch
-# (els LEDs es queden en verd). S'espera fins a 60 s que hi hagi xarxa.
-ExecStartPre=/bin/sh -c 'for i in $(seq 60); do ip -4 route | grep -q default && exit 0; sleep 1; done; exit 0'
+# (els LEDs es queden en verd). S'espera fins a 60 s que hi hagi xarxa, i 10 s
+# més: si arrenca el mateix segon que el DHCP dona la IP, tampoc els veu.
+ExecStartPre=/bin/sh -c 'for i in $(seq 60); do ip -4 route | grep -q default && break; sleep 1; done; sleep 10'
 ExecStart=/bin/bash -c 'source /opt/ros/jazzy/setup.bash && source @REPO_DIR@/install/setup.bash && exec ros2 run my_pakage status_led'
 # SIGINT perquè el node apagui els LEDs abans de sortir.
 KillSignal=SIGINT
