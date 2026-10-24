@@ -96,9 +96,9 @@ class ServoPwm:
         if not os.path.isdir(self._pwm_dir):
             with open(os.path.join(chip, 'export'), 'w') as f:
                 f.write(str(channel))
-        # El duty no pot ser mai més gran que el període: primer es posa a 0.
-        self._write('enable', 0)
-        self._write('duty_cycle', 0)
+        # Primer el període: amb el canal acabat d'exportar és 0, i el driver
+        # (pwm-bcm2835) rebutja qualsevol altra escriptura (EINVAL) fins que
+        # n'hi ha un de vàlid.
         self._write('period', PERIOD_NS)
         self._write('duty_cycle', int(round(pulse_us)) * 1000)
         self._write('enable', 1)
