@@ -178,6 +178,10 @@ class MyNode(Node):
         # té caigudes de tensió (comparteix els 5 V del BEC); aixecat, 0.5 m/s
         # en necessita ~35 %, però a terra en cal més.
         self.max_duty = float(self.declare_parameter('max_duty', 85.0).value)
+        # Límits en accelerar (a terra, si la força arriba de cop, les rodes
+        # derrapen). En frenar o aturar-se no es limita.
+        self.max_accel = float(self.declare_parameter('max_accel', 0.5).value)  # m/s², rampa de l'objectiu
+        self.max_duty_rate = float(self.declare_parameter('max_duty_rate', 80.0).value)  # %/s, rampa del PWM
         # Guanys en % de PWM per rpm d'error. Baixos perquè el soroll de
         # l'encoder no faci sacsejar els motors: el feedforward dona gairebé tot
         # el PWM i l'integral el corregeix a poc a poc.
@@ -225,6 +229,8 @@ class MyNode(Node):
         self.last_ticks = 0
         self.last_time = None
         self.filtered_rpm = 0.0
+        self.ramped_target = 0.0
+        self.last_control = 0.0
 
         self.create_subscription(Float32, 'target_speed', self.target_callback, 10)
         self.speed_pub = self.create_publisher(Float32, 'wheel_speed', 10)
@@ -274,6 +280,21 @@ class MyNode(Node):
         target = 0.0 if timed_out else self.target_speed
         self.moving_pub.publish(Bool(data=self.hardware and target != 0.0))
 
+        # temps real entre crides (el timer pot tenir retard), no el període nominal
+        dt = self.period if self.last_time is None else (now - self.last_time).nanoseconds * 1e-9
+        self.last_time = now
+        if dt <= 0.0:
+            dt = self.period
+
+        # Rampa d'acceleració: l'objectiu només puja max_accel m/s per segon.
+        # Si baixa, canvia de signe o és 0 (aturada), s'aplica de cop.
+        if target != 0.0 and target * self.ramped_target >= 0.0 and abs(target) > abs(self.ramped_target):
+            step = self.max_accel * dt
+            self.ramped_target += max(-step, min(step, target - self.ramped_target))
+        else:
+            self.ramped_target = target
+        target = self.ramped_target
+
         if not self.hardware:
             self.speed_pub.publish(Float32(data=float(target)))
             return
@@ -281,12 +302,6 @@ class MyNode(Node):
         ticks = self.encoder.ticks
         delta_ticks = ticks - self.last_ticks
         self.last_ticks = ticks
-
-        # temps real entre crides (el timer pot tenir retard), no el període nominal
-        dt = self.period if self.last_time is None else (now - self.last_time).nanoseconds * 1e-9
-        self.last_time = now
-        if dt <= 0.0:
-            dt = self.period
 
         # el signe ve de encoder.direction (sentit de l'objectiu)
         raw_rpm = (delta_ticks / self.PULSES_PER_REV) * (60 / dt)
@@ -309,10 +324,15 @@ class MyNode(Node):
                 control = max(0.0, min(self.max_duty, control))
             else:
                 control = max(-self.max_duty, min(0.0, control))
+            # El PWM només pot créixer max_duty_rate % per segon (baixar, de cop).
+            if abs(control) > abs(self.last_control):
+                step = self.max_duty_rate * dt
+                control = max(self.last_control - step, min(self.last_control + step, control))
             # Si el sentit es tragués del PWM, una correcció puntual cap a 0 o
             # negativa giraria el compte mentre la roda encara gira endavant.
             self.encoder.direction = 1 if target > 0.0 else -1
 
+        self.last_control = control
         self.set_motor(control)
         self.speed_pub.publish(Float32(data=float(self.rpm_to_speed(rpm))))
 
