@@ -46,13 +46,17 @@ INVERT_MOTOR_A = True
 INVERT_MOTOR_B = False
 ENCODER_INVERT = False
 
-# Servo de direcció (steering): pin BCM i amplades de pols a -45, 0 i +45 deg.
+# Servo de direcció (steering): pin BCM i amplades de pols als dos extrems i
+# al centre. Calibrat amb `ros2 run my_pakage calibrate_servo` (24/10/2026):
+# topes a 1040 us (esquerra) i 1660 us (dreta), rodes rectes a 1300 us. Es fa
+# servir el recorregut del costat més curt (±260 us) per als dos costats.
 SERVO_PIN = 18            # BCM (GPIO 18 = pin físic 12, PWM de maquinari)
-SERVO_MIN_PULSE_US = 1000.0
-SERVO_CENTER_PULSE_US = 1500.0
-SERVO_MAX_PULSE_US = 2000.0
-SERVO_MAX_ANGLE = 0.785398  # rad (45 deg), angle del servo a min/max pulse
-SERVO_INVERT = False
+SERVO_MIN_PULSE_US = 1040.0
+SERVO_CENTER_PULSE_US = 1300.0
+SERVO_MAX_PULSE_US = 1560.0
+# Angle del servo a min/max pulse: estimat suposant 500 us = 45 deg (no mesurat).
+SERVO_MAX_ANGLE = math.radians(23.4)  # rad
+SERVO_INVERT = True       # pols més curt = esquerra
 # Suavitzat de la direcció (steering): velocitat màxima de gir de les rodes,
 # filtre passa-baix de l'ordre i zona morta per ignorar correccions petites.
 STEER_MAX_RATE = 1.0          # rad/s
@@ -61,7 +65,7 @@ STEER_DEADBAND = 0.01         # rad (~0.6 deg)
 
 # Transmissió Ackermann-servomotor: angle_rodes = K · sin(angle_servo).
 WHEEL_ANGLE_GAIN_DEG = 24.52
-# Angle màxim de les rodes que permet el servo (~17.3 deg amb el servo a 45 deg).
+# Angle màxim de les rodes que permet el servo (~9.7 deg amb el servo a 23.4 deg).
 MAX_STEER = math.radians(WHEEL_ANGLE_GAIN_DEG) * math.sin(SERVO_MAX_ANGLE)  # rad
 
 # El LIDAR (LD500) és sobre l'eix davanter (rodes de gir): és el punt (0, 0)
