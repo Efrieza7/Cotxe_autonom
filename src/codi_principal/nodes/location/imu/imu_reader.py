@@ -1,13 +1,54 @@
 # Subscripció IMU traslladada a nodes/imu
 # ubicació original: EKF_slam/IMU/imu_reader.py
+import math
+import struct
+
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
 
 try:
-    from sense_hat import SenseHat
+    from smbus2 import SMBus
 except ImportError:
-    SenseHat = None
+    SMBus = None
+
+
+class LSM9DS1:
+    """Giroscopi i acceleròmetre de la Sense HAT (LSM9DS1, I2C 0x6a), llegits
+    directament per I2C.
+
+    No es fa servir la llibreria sense_hat: necessita RTIMULib, que a Ubuntu
+    no detecta la IMU perquè el kernel ja té ocupat el magnetòmetre (0x1c).
+    """
+
+    ADDRESS = 0x6A
+    WHO_AM_I = 0x0F  # ha de valer 0x68
+    CTRL_REG1_G = 0x10
+    CTRL_REG6_XL = 0x20
+    OUT_X_G = 0x18
+    OUT_X_XL = 0x28
+    GYRO_SCALE = math.radians(0.00875)  # 245 dps: 8.75 mdps/LSB -> rad/s
+    ACCEL_SCALE = 0.000061  # ±2 g: 0.061 mg/LSB -> g
+
+    def __init__(self, bus=1):
+        self.bus = SMBus(bus)
+        who = self.bus.read_byte_data(self.ADDRESS, self.WHO_AM_I)
+        if who != 0x68:
+            raise RuntimeError(f'WHO_AM_I = 0x{who:02x} (esperat 0x68): no és la IMU de la Sense HAT')
+        self.bus.write_byte_data(self.ADDRESS, self.CTRL_REG1_G, 0x60)   # giroscopi 119 Hz, 245 dps
+        self.bus.write_byte_data(self.ADDRESS, self.CTRL_REG6_XL, 0x60)  # acceleròmetre 119 Hz, ±2 g
+
+    def _read_xyz(self, register, scale):
+        x, y, z = struct.unpack('<hhh', bytes(self.bus.read_i2c_block_data(self.ADDRESS, register, 6)))
+        return {'x': x * scale, 'y': y * scale, 'z': z * scale}
+
+    def get_gyroscope_raw(self):
+        """rad/s"""
+        return self._read_xyz(self.OUT_X_G, self.GYRO_SCALE)
+
+    def get_accelerometer_raw(self):
+        """g"""
+        return self._read_xyz(self.OUT_X_XL, self.ACCEL_SCALE)
 
 
 class IMUReader(Node):
@@ -46,17 +87,17 @@ class IMUReader(Node):
         self.accel_publisher = self.create_publisher(Float32, 'imu/accel', 10)
 
         self.sensor = None
-        if SenseHat is None:
+        if SMBus is None:
             self.get_logger().warning(
-                'Llibreria sense_hat no disponible: no es publica imu/yaw_rate'
+                'Llibreria smbus2 no disponible (sudo apt install python3-smbus2): '
+                'no es publica imu/yaw_rate'
             )
             return
         try:
-            self.sensor = SenseHat()
-            self.sensor.set_imu_config(False, True, True)  # giroscopi i acceleròmetre
+            self.sensor = LSM9DS1()
         except Exception as e:
             self.sensor = None
-            self.get_logger().error(f'No es pot inicialitzar la Sense HAT: {e}')
+            self.get_logger().error(f'No es pot inicialitzar la IMU de la Sense HAT: {e}')
             return
 
         self.bias = 0.0

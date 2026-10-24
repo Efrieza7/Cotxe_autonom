@@ -7,10 +7,24 @@ tensió). L'ordre de les seccions és l'ordre per tornar-la a deixar igual.
 El codi del repositori que hi havia era idèntic al commit `57e0fd3` de GitHub
 (sense fitxers propis de la Raspberry): no cal recuperar res d'allà.
 
+El 24/10/2026 es va reinstal·lar de zero amb aquests passos sobre **Ubuntu
+24.04.5 Server** (sense escriptori). Les seccions 2-5 són exactament el que es
+va instal·lar.
+
 ## 1. Sistema
 
-- Raspberry Pi 4 Model B, **Ubuntu 24.04 LTS** (imatge *Raspberry Pi Generic*,
-  kernel `6.8.0-*-raspi`). Usuari `frieza`, hostname `frieza-desktop`.
+- Raspberry Pi 4 Model B, **Ubuntu 24.04.5 Server** (imatge
+  `ubuntu-24.04.5-preinstalled-server-arm64+raspi.img.xz`, kernel
+  `6.8.0-*-raspi`). Usuari `frieza`, hostname `frieza-desktop`.
+- Primer arrencada sense pantalla: abans de posar la SD a la Raspberry, a la
+  partició `system-boot` es canvien `user-data` (usuari, contrasenya, hostname,
+  SSH, zona horària, `cfg80211.conf`) i `network-config` (les dues WiFi amb
+  `regulatory-domain: ES`). Així arrenca ja connectada i amb SSH.
+- Trobar-la a la xarxa pel nom (`ssh frieza@frieza-desktop.local`), encara que
+  canviï la IP:
+  ```bash
+  sudo apt install avahi-daemon
+  ```
 - Sense escriptori en arrencar:
   ```bash
   sudo systemctl set-default multi-user.target
@@ -54,17 +68,18 @@ sudo dpkg -i /tmp/ros2-apt-source.deb
 sudo apt update && sudo apt upgrade
 ```
 
-Paquets que hi havia instal·lats:
+Paquets de ROS i del cotxe:
 
 ```bash
-sudo apt install ros-jazzy-ros-base ros-jazzy-nav2-lifecycle-manager \
-    ros-jazzy-nav2-util ros-jazzy-diagnostic-updater
-sudo apt install colcon cmake libudev-dev python3-pip python3.12-venv \
-    python3-serial python3-numpy python3-scipy
+sudo apt install ros-jazzy-ros-base ros-dev-tools \
+    ros-jazzy-nav2-lifecycle-manager ros-jazzy-nav2-util ros-jazzy-nav2-msgs \
+    ros-jazzy-diagnostic-updater ros-jazzy-bondcpp ros-jazzy-robot-state-publisher \
+    ros-jazzy-ament-lint-auto ros-jazzy-ament-lint-common \
+    cmake libudev-dev python3-pip python3.12-venv python3-serial python3-numpy python3-scipy
 ```
 
-També hi havia `ros-jazzy-desktop` (RViz, etc.). Amb SSH i sense escriptori
-no es fa servir: es pot deixar només `ros-base` (ocupa menys i va més lleuger).
+No cal `ros-jazzy-desktop` ni `rviz2` / `slam_toolbox` (dependències de
+`ldlidar_node` i `car_simulator` només per visualitzar): RViz s'obre al PC.
 
 ## 3. GPIO
 
@@ -73,6 +88,15 @@ A Ubuntu 24.04 cal el substitut de `RPi.GPIO`:
 ```bash
 sudo apt remove python3-rpi.gpio
 sudo apt install python3-rpi-lgpio
+```
+
+IMU de la Sense HAT (`imu_reader` la llegeix directament per I2C, sense la
+llibreria `sense_hat`, que a Ubuntu no detecta la IMU):
+
+```bash
+sudo apt install python3-smbus2 i2c-tools
+sudo usermod -aG i2c frieza
+i2cdetect -y 1      # 6a = giroscopi/acceleròmetre (LSM9DS1)
 ```
 
 ## 4. Repositori i compilació
@@ -108,7 +132,7 @@ Reinicia i comprova:
 
 ```bash
 ls -l /dev/ldlidar                 # -> ttyUSB0
-groups                             # ha d'incloure gpio i video
+groups                             # ha d'incloure gpio, video i i2c
 systemctl status gpio-reset status-led --no-pager
 grep -E "^(gpio=|dtoverlay=pwm)" /boot/firmware/config.txt   # gpio=5,6,16,26=op,dl,pd i dtoverlay=pwm,pin=18,func=2
 ls /sys/class/pwm/                 # pwmchip0 (PWM de maquinari del servo)
