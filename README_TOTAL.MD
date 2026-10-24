@@ -369,7 +369,7 @@ El LiDAR està connectat a un adaptador USB-UART que permet connectar-lo a la Ra
 
 Els motors es connecten a les sortides del *driver*: el motor B a BOUT1 i BOUT2, i el motor A a AOUT1 i AOUT2. A més, el motor A té un *encoder* per mesurar la velocitat de gir. L’*encoder* envia els seus dos senyals als GPIO 27 (fase A, pin 13) i 17 (fase B, pin 11), s’alimenta amb els 3,3 V del pin 1 i té el GND connectat al pin 25. Finalment, la Raspberry controla el *driver* a través de les entrades AIN1, AIN2, BIN1 i BIN2 (vegeu la Taula 1).
 
-El servomotor, a part de l’alimentació, només té un cable, pel qual rep el senyal. Aquest cable està connectat al GPIO 4 (pin 7).
+El servomotor, a part de l’alimentació, només té un cable, pel qual rep el senyal. Aquest cable està connectat al GPIO 18 (pin 12), un dels pins on la Raspberry pot generar el PWM per maquinari: així els polsos són exactes encara que el processador estigui molt ocupat.
 
 Els dos sensors de proximitat s’alimenten amb els 3,3 V del pin 17 i tenen el GND connectat al pin 39. Cada sensor utilitza dos GPIO: un per al Trig, que envia el pols d’ultrasons, i un altre per a l’Echo, que retorna el temps que triga l’eco. El primer sensor té el Trig al GPIO 13 (pin 33) i l’Echo al GPIO 19 (pin 35), i el segon té el Trig al GPIO 20 (pin 38) i l’Echo al GPIO 21 (pin 40).
 

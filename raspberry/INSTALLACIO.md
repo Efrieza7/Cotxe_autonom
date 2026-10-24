@@ -93,7 +93,7 @@ L'entorn de Python del path planning (`.venv`): vegeu el README principal.
 Un cop compilat el workspace, des de l'arrel del repositori:
 
 ```bash
-sudo ./raspberry/install_gpio_reset.sh    # config.txt, regla udev de gpiochip, grup gpio, servei gpio-reset
+sudo ./raspberry/install_gpio_reset.sh    # config.txt (motors a 0 + PWM del servo al GPIO 18), regles udev de gpiochip i pwm, grup gpio, servei gpio-reset
 sudo ./raspberry/install_status_led.sh    # servei dels LEDs de la Sense HAT, grup video
 ```
 
@@ -110,7 +110,8 @@ Reinicia i comprova:
 ls -l /dev/ldlidar                 # -> ttyUSB0
 groups                             # ha d'incloure gpio i video
 systemctl status gpio-reset status-led --no-pager
-grep "^gpio=" /boot/firmware/config.txt   # gpio=4,5,6,16,26=op,dl,pd
+grep -E "^(gpio=|dtoverlay=pwm)" /boot/firmware/config.txt   # gpio=5,6,16,26=op,dl,pd i dtoverlay=pwm,pin=18,func=2
+ls /sys/class/pwm/                 # pwmchip0 (PWM de maquinari del servo)
 vcgencmd get_throttled             # 0x0 = sense caigudes de tensió
 ```
 
@@ -118,7 +119,7 @@ vcgencmd get_throttled             # 0x0 = sense caigudes de tensió
 
 | Què | Valor |
 |---|---|
-| `config.txt` (afegit) | `gpio=4,5,6,16,26=op,dl,pd` (la resta, el de fàbrica d'Ubuntu, amb I2C i SPI activats) |
+| `config.txt` (afegit) | `gpio=4,5,6,16,26=op,dl,pd` (la resta, el de fàbrica d'Ubuntu, amb I2C i SPI activats). Ara el servo és al GPIO 18 (pin 12): l'script posa `gpio=5,6,16,26=op,dl,pd` i `dtoverlay=pwm,pin=18,func=2` |
 | Regles udev pròpies | `99-gpio.rules`, `99-ldlidar.rules` |
 | Serveis propis | `gpio-reset.service` (sysinit), `status-led.service` (multi-user) |
 | Grups de `frieza` | `sudo`, `video`, `gpio` (+ els de fàbrica) |

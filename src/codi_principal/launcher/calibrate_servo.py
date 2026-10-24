@@ -21,19 +21,19 @@ fa força (el servo brunzeix). Allà no s'hi ha de deixar el servo: cal tornar
 enrere uns 20-30 us abans de guardar, o es pot cremar.
 """
 import argparse
+import os
 import sys
 import termios
 import time
 import tty
 
 try:
-    import RPi.GPIO as GPIO
-    GPIO_ERROR = None
-except (ImportError, RuntimeError) as e:
-    GPIO = None
-    GPIO_ERROR = e
+    from nodes.control.servo_pwm import ServoPwm
+except ImportError:
+    # Executat directament (python3 calibrate_servo.py), sense el workspace.
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+    from nodes.control.servo_pwm import ServoPwm
 
-PWM_FREQUENCY_HZ = 50.0
 # Límits absoluts per no forçar el servo fora del que accepta un MG90S.
 ABS_MIN_PULSE_US = 500.0
 ABS_MAX_PULSE_US = 2500.0
@@ -87,33 +87,27 @@ def print_result(points: dict) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--pin', type=int, default=4, help='pin BCM del servo (per defecte 4)')
+    parser.add_argument('--pin', type=int, default=18, help='pin BCM del servo (per defecte 18)')
     parser.add_argument('--start', type=float, default=1500.0, help='pols inicial en us (per defecte 1500)')
     args, _ = parser.parse_known_args()  # ignora els arguments que afegeix ros2 run
 
     if not sys.stdin.isatty():
         sys.exit('Cal executar-ho des d\'un terminal (llegeix el teclat).')
 
-    pwm = None
-    if GPIO is None:
-        print(f'No s\'ha pogut carregar RPi.GPIO ({type(GPIO_ERROR).__name__}: {GPIO_ERROR}). '
-              'No es mourà cap servo, només es mostren els polsos.')
-    else:
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(args.pin, GPIO.OUT)
-        pwm = GPIO.PWM(args.pin, PWM_FREQUENCY_HZ)
-
-    def duty(pulse_us: float) -> float:
-        return 100.0 * pulse_us / (1e6 / PWM_FREQUENCY_HZ)
-
     pulse = max(ABS_MIN_PULSE_US, min(ABS_MAX_PULSE_US, args.start))
+    servo = None
+    try:
+        servo = ServoPwm(args.pin, pulse)
+        print(f'Servo al GPIO {args.pin} amb PWM de {servo.kind}.')
+    except Exception as e:
+        print(f'No es pot generar el senyal del servo ({e}). '
+              'No es mourà cap servo, només es mostren els polsos.')
+
     points = {}
     steps = {'a': -10.0, 'd': 10.0, 'q': -1.0, 'e': 1.0}
     names = {'1': 'esquerra', '2': 'centre', '3': 'dreta'}
 
     print(__doc__.split('Tecles:')[1].split('Els topes')[0].rstrip())
-    if pwm is not None:
-        pwm.start(duty(pulse))
 
     try:
         while True:
@@ -123,18 +117,16 @@ def main() -> None:
                 break
             if key in steps:
                 pulse = max(ABS_MIN_PULSE_US, min(ABS_MAX_PULSE_US, pulse + steps[key]))
-                if pwm is not None:
-                    pwm.ChangeDutyCycle(duty(pulse))
+                if servo is not None:
+                    servo.set_pulse(pulse)
             elif key in names:
                 points[names[key]] = pulse
                 print(f'\n{names[key]} = {pulse:.0f} us')
     finally:
-        if pwm is not None:
-            center = points.get('centre', args.start)
-            pwm.ChangeDutyCycle(duty(center))
+        if servo is not None:
+            servo.set_pulse(points.get('centre', args.start))
             time.sleep(0.5)  # temps perquè el servo arribi al centre
-            pwm.stop()
-            GPIO.cleanup(args.pin)
+            servo.stop()
         print_result(points)
 
 

@@ -47,7 +47,7 @@ INVERT_MOTOR_B = False
 ENCODER_INVERT = False
 
 # Servo de direcció (steering): pin BCM i amplades de pols a -45, 0 i +45 deg.
-SERVO_PIN = 4             # BCM (GPIO 4 = pin físic 7)
+SERVO_PIN = 18            # BCM (GPIO 18 = pin físic 12, PWM de maquinari)
 SERVO_MIN_PULSE_US = 1000.0
 SERVO_CENTER_PULSE_US = 1500.0
 SERVO_MAX_PULSE_US = 2000.0

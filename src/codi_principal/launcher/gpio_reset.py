@@ -7,7 +7,10 @@ servei `raspberry/gpio-reset.service`, o a mà si un motor s'ha quedat engegat:
     sudo python3 gpio_reset.py        # sense ROS
     ros2 run my_pakage gpio_reset     # amb el workspace carregat
 
-- Pins que són SORTIDES del cotxe (motors i servo): sortida a 0.
+- Pins que són SORTIDES del cotxe (motors): sortida a 0.
+- Servo (GPIO 18): fa servir el PWM de maquinari, que no és un GPIO normal.
+  No es toca el pin (si es fes sortida perdria la funció de PWM fins a
+  reiniciar); s'atura el senyal desactivant els canals de /sys/class/pwm.
 - La resta de pins lliures: entrada amb pull-down (es llegeixen com a 0).
   No es posen com a sortida perquè si hi ha connectat un sensor que treu
   tensió (p. ex. l'encoder), una sortida a 0 el curtcircuitaria.
@@ -15,14 +18,15 @@ servei `raspberry/gpio-reset.service`, o a mà si un motor s'ha quedat engegat:
   UART).
 """
 import argparse
+import glob
 import sys
 
 # Pins BCM. Han de coincidir amb full_car.launch.py.
 OUTPUT_PINS = [
-    4,                # servo de direcció
     5, 6, 26, 16,     # DRV8833: AIN1, AIN2, BIN1, BIN2
 ]
 RESERVED_PINS = [
+    18,               # servo de direcció: PWM de maquinari (dtoverlay=pwm)
     0, 1,             # ID EEPROM dels HAT
     2, 3,             # I2C (IMU / Sense HAT)
     7, 8, 9, 10, 11,  # SPI0 (actiu a Ubuntu: el kernel té ocupat el GPIO 7). La
@@ -45,6 +49,15 @@ def main(argv=None):
     parser.add_argument('--reserved', type=parse_pins, default=RESERVED_PINS,
                         help='pins (BCM) que no es toquen, separats per comes')
     args = parser.parse_args(argv)
+
+    # Servo: atura el PWM de maquinari (segueix generant polsos encara que
+    # el programa que l'ha engegat s'hagi acabat).
+    for enable in glob.glob('/sys/class/pwm/pwmchip*/pwm*/enable'):
+        try:
+            with open(enable, 'w') as f:
+                f.write('0')
+        except OSError as e:
+            print(f'gpio_reset: no es pot aturar {enable}: {e}', file=sys.stderr)
 
     try:
         import RPi.GPIO as GPIO

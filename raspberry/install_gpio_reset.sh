@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Instal·la el reset dels GPIO a la Raspberry:
-#   1. config.txt: el firmware posa els pins dels motors i del servo a 0
-#      abans que arrenqui Linux (és el més ràpid que es pot fer).
-#   2. gpio-reset.service: torna a posar tots els pins a 0 quan Linux arrenca
-#      i quan s'apaga.
+#   1. config.txt: el firmware posa els pins dels motors a 0 abans que
+#      arrenqui Linux (és el més ràpid que es pot fer) i activa el PWM de
+#      maquinari al GPIO 18 (servo).
+#   2. Permisos dels GPIO i del PWM per al grup gpio.
+#   3. gpio-reset.service: torna a posar tots els pins a 0 (i atura el PWM
+#      del servo) quan Linux arrenca i quan s'apaga.
 #
 # Ús (des de l'arrel del repositori, a la Raspberry):
 #   sudo ./raspberry/install_gpio_reset.sh
@@ -16,10 +18,12 @@ fi
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Pins BCM de sortida (servo i DRV8833). Han de coincidir amb full_car.launch.py.
+# Pins BCM de sortida (DRV8833). Han de coincidir amb full_car.launch.py.
 # pd: pull-down, perquè quan un programa allibera el pin (torna a entrada) quedi a 0.
-CONFIG_LINE="gpio=4,5,6,16,26=op,dl,pd"
-CONFIG_COMMENT="# Cotxe autonom: motors i servo a 0 en arrencar"
+CONFIG_LINE="gpio=5,6,16,26=op,dl,pd"
+# Servo: PWM de maquinari (PWM0, canal 0) al GPIO 18 = pin físic 12.
+PWM_LINE="dtoverlay=pwm,pin=18,func=2"
+CONFIG_COMMENT="# Cotxe autonom: motors a 0 en arrencar i PWM del servo"
 
 if ! python3 -c "import RPi.GPIO" 2>/dev/null; then
     echo "Falta RPi.GPIO. A Ubuntu 24.04 instal·la: sudo apt install python3-rpi-lgpio" >&2
@@ -29,25 +33,30 @@ fi
 # 1. config.txt (Ubuntu i Pi OS Bookworm: /boot/firmware, Pi OS antic: /boot)
 CONFIG_TXT=/boot/firmware/config.txt
 [ -f "$CONFIG_TXT" ] || CONFIG_TXT=/boot/config.txt
-if grep -qxF "$CONFIG_LINE" "$CONFIG_TXT"; then
-    echo "$CONFIG_TXT ja té: $CONFIG_LINE"
+if grep -qxF "$CONFIG_LINE" "$CONFIG_TXT" && grep -qxF "$PWM_LINE" "$CONFIG_TXT"; then
+    echo "$CONFIG_TXT ja té: $CONFIG_LINE i $PWM_LINE"
 else
     cp "$CONFIG_TXT" "$CONFIG_TXT.bak"
-    # Treu la línia d'una instal·lació anterior (amb uns altres pins).
-    sed -i "/^$CONFIG_COMMENT\$/{n;/^gpio=.*=op,dl\$/d}" "$CONFIG_TXT"
-    sed -i "/^$CONFIG_COMMENT\$/d" "$CONFIG_TXT"
-    printf '\n[all]\n%s\n%s\n' "$CONFIG_COMMENT" "$CONFIG_LINE" >> "$CONFIG_TXT"
-    echo "Afegit a $CONFIG_TXT (còpia a $CONFIG_TXT.bak): $CONFIG_LINE"
+    # Treu les línies d'instal·lacions anteriors (amb uns altres pins, p. ex.
+    # el servo al GPIO 4).
+    sed -i -E '/^# Cotxe autonom: /d; /^gpio=[0-9,]+=op,dl(,pd)?$/d; /^dtoverlay=pwm,pin=/d' "$CONFIG_TXT"
+    printf '\n[all]\n%s\n%s\n%s\n' "$CONFIG_COMMENT" "$CONFIG_LINE" "$PWM_LINE" >> "$CONFIG_TXT"
+    echo "Afegit a $CONFIG_TXT (còpia a $CONFIG_TXT.bak): $CONFIG_LINE, $PWM_LINE"
 fi
 
-# 2. Permisos: a Ubuntu /dev/gpiochip* només és de root i els nodes donen
-#    "can not open gpiochip". Es dona accés al grup gpio.
+# 2. Permisos: a Ubuntu /dev/gpiochip* i /sys/class/pwm només són de root i
+#    els nodes donen "can not open gpiochip" o "Permission denied". Es dona
+#    accés al grup gpio (la regla del PWM és la de Raspberry Pi OS).
 groupadd -f gpio
 cat > /etc/udev/rules.d/99-gpio.rules <<'EOF'
 SUBSYSTEM=="gpio", KERNEL=="gpiochip*", GROUP="gpio", MODE="0660"
 EOF
+cat > /etc/udev/rules.d/99-pwm.rules <<'EOF'
+SUBSYSTEM=="pwm*", PROGRAM="/bin/sh -c 'chown -R root:gpio /sys/class/pwm && chmod -R 770 /sys/class/pwm; chown -R root:gpio /sys/devices/platform/soc/*.pwm/pwm/pwmchip* && chmod -R 770 /sys/devices/platform/soc/*.pwm/pwm/pwmchip*'"
+EOF
 udevadm control --reload-rules
 udevadm trigger --subsystem-match=gpio
+udevadm trigger --subsystem-match=pwm || true
 if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then
     usermod -aG gpio "$SUDO_USER"
     echo "Usuari $SUDO_USER afegit al grup gpio (cal tornar a iniciar sessió)"

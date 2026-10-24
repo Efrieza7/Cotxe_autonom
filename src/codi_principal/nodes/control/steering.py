@@ -4,10 +4,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
 
-try:
-    import RPi.GPIO as GPIO
-except (ImportError, RuntimeError):
-    GPIO = None
+from nodes.control.servo_pwm import ServoPwm
 
 
 class Steering(Node):
@@ -21,21 +18,19 @@ class Steering(Node):
     - Suavitza l'ordre per evitar canvis bruscos: filtre passa-baix
       (`smoothing_time_sec`), zona morta per ignorar correccions petites
       (`deadband_rad`) i límit de velocitat de gir (`max_delta_per_sec`).
-    - Genera el PWM del servo directament des d'un GPIO de la Raspberry
-      (50 Hz, amplada de pols entre `min_pulse_us` i `max_pulse_us`).
+    - Genera el senyal del servo (50 Hz, amplada de pols entre `min_pulse_us`
+      i `max_pulse_us`) amb `ServoPwm`: PWM de maquinari al GPIO 18.
     - Publica a `steering_angle` (Float32, radians) l'angle de les rodes
       realment ordenat, que fa servir `bicycle_model` per a la localització.
 
-    Si RPi.GPIO no està disponible o `dry_run` és True, no mou cap servo però
+    Si no es pot generar el senyal o `dry_run` és True, no mou cap servo però
     continua publicant `steering_angle` (útil per provar-ho fora del cotxe).
     """
-
-    PWM_FREQUENCY_HZ = 50.0
 
     def __init__(self):
         super().__init__('steering')
 
-        self.servo_pin = int(self.declare_parameter('servo_pin', 4).value)  # BCM (GPIO 4 = pin físic 7)
+        self.servo_pin = int(self.declare_parameter('servo_pin', 18).value)  # BCM (GPIO 18 = pin físic 12)
         # Angle del servo (rad) a min_pulse_us / max_pulse_us.
         self.servo_max_angle = float(self.declare_parameter('servo_max_angle', 0.785398).value)
         # Transmissió servo -> rodes: angle_rodes = K · sin(angle_servo), K en graus.
@@ -63,20 +58,16 @@ class Steering(Node):
         self.current_angle = 0.0
         self.last_time = self.get_clock().now()
 
-        self.pwm = None
-        if dry_run or GPIO is None:
+        self.servo = None
+        if not dry_run:
+            try:
+                self.servo = ServoPwm(self.servo_pin, self._pulse_us(0.0), warn=self.get_logger().warning)
+            except Exception as e:
+                self.get_logger().error(f'No es pot generar el senyal del servo: {e}')
+        if self.servo is None:
             self.get_logger().warning(
-                'Steering en mode dry_run (sense RPi.GPIO o dry_run=True): '
-                'no es mou cap servo, només es publica steering_angle'
+                'Steering en mode dry_run: no es mou cap servo, només es publica steering_angle'
             )
-        else:
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(self.servo_pin, GPIO.OUT)
-            self.pwm = GPIO.PWM(self.servo_pin, self.PWM_FREQUENCY_HZ)
-            self.pwm.start(self._duty_cycle(0.0))
-        # Últim duty enviat: amb rpi-lgpio cada ChangeDutyCycle reinicia el PWM i
-        # el servo fa espasmes, així que només s'envia quan canvia.
-        self.last_duty = self._duty_cycle(0.0)
 
         self.create_subscription(Float32, 'target_angle', self.callback_target, 10)
         self.pub = self.create_publisher(Float32, 'steering_angle', 10)
@@ -84,6 +75,7 @@ class Steering(Node):
 
         self.get_logger().info(
             f'Steering started: servo_pin={self.servo_pin} '
+            f'(PWM {self.servo.kind if self.servo else "cap"}) '
             f'pulses={self.min_pulse_us}/{self.center_pulse_us}/{self.max_pulse_us} us '
             f'servo_max={math.degrees(self.servo_max_angle):.0f} deg '
             f'wheel_max={math.degrees(self.max_angle):.1f} deg (K={gain_deg} deg)'
@@ -109,10 +101,6 @@ class Steering(Node):
             return self.center_pulse_us + t * (self.max_pulse_us - self.center_pulse_us)
         return self.center_pulse_us + t * (self.center_pulse_us - self.min_pulse_us)
 
-    def _duty_cycle(self, angle: float) -> float:
-        period_us = 1e6 / self.PWM_FREQUENCY_HZ
-        return 100.0 * self._pulse_us(angle) / period_us
-
     def update(self) -> None:
         now = self.get_clock().now()
         dt = (now - self.last_time).nanoseconds * 1e-9
@@ -129,18 +117,15 @@ class Steering(Node):
             max_delta = self.max_delta_per_sec * dt
             self.current_angle += max(-max_delta, min(max_delta, delta))
 
-        duty = round(self._duty_cycle(self.current_angle), 2)
-        if self.pwm is not None and duty != self.last_duty:
-            self.pwm.ChangeDutyCycle(duty)
-            self.last_duty = duty
+        if self.servo is not None:
+            self.servo.set_pulse(self._pulse_us(self.current_angle))
 
         self.pub.publish(Float32(data=float(self.current_angle)))
 
     def destroy_node(self):
-        if self.pwm is not None:
-            self.pwm.ChangeDutyCycle(self._duty_cycle(0.0))
-            self.pwm.stop()
-            GPIO.cleanup(self.servo_pin)
+        if self.servo is not None:
+            self.servo.set_pulse(self._pulse_us(0.0))
+            self.servo.stop()
         super().destroy_node()
 
 

@@ -3,12 +3,7 @@ import math
 import rclpy
 from rclpy.node import Node
 
-try:
-    import RPi.GPIO as GPIO
-    GPIO_ERROR = None
-except (ImportError, RuntimeError) as e:
-    GPIO = None
-    GPIO_ERROR = e  # motiu pel qual no s'ha pogut carregar RPi.GPIO
+from nodes.control.servo_pwm import PWM_FREQUENCY_HZ, ServoPwm
 
 
 class TestServo(Node):
@@ -21,12 +16,10 @@ class TestServo(Node):
     `steering`, així que si allà funciona, aquí també.
     """
 
-    PWM_FREQUENCY_HZ = 50.0
-
     def __init__(self):
         super().__init__('test_servo')
 
-        self.servo_pin = int(self.declare_parameter('servo_pin', 4).value)  # BCM (GPIO 4 = pin físic 7)
+        self.servo_pin = int(self.declare_parameter('servo_pin', 18).value)  # BCM (GPIO 18 = pin físic 12)
         self.min_pulse_us = float(self.declare_parameter('min_pulse_us', 1000.0).value)
         self.center_pulse_us = float(self.declare_parameter('center_pulse_us', 1500.0).value)
         self.max_pulse_us = float(self.declare_parameter('max_pulse_us', 2000.0).value)
@@ -37,24 +30,21 @@ class TestServo(Node):
 
         self.amplitude = max(0.0, min(1.0, self.amplitude))
         self.elapsed = 0.0
-        self.dt = 1.0 / self.PWM_FREQUENCY_HZ
+        self.dt = 1.0 / PWM_FREQUENCY_HZ
         self.finished = False
 
-        self.pwm = None
-        if GPIO is None:
+        self.servo = None
+        try:
+            self.servo = ServoPwm(self.servo_pin, self._pulse_us(0.0), warn=self.get_logger().warning)
+        except Exception as e:
             self.get_logger().error(
-                f'No s\'ha pogut carregar RPi.GPIO ({type(GPIO_ERROR).__name__}: {GPIO_ERROR}). '
-                'No es mourà cap servo, només es mostren els polsos. '
-                'Prova: python3 -c "import RPi.GPIO"'
+                f'No es pot generar el senyal del servo ({e}). '
+                'No es mourà cap servo, només es mostren els polsos.'
             )
-        else:
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(self.servo_pin, GPIO.OUT)
-            self.pwm = GPIO.PWM(self.servo_pin, self.PWM_FREQUENCY_HZ)
-            self.pwm.start(self._duty_cycle(0.0))
 
         self.get_logger().info(
-            f'TestServo started: servo_pin={self.servo_pin} amplitude={self.amplitude:.2f} '
+            f'TestServo started: servo_pin={self.servo_pin} '
+            f'(PWM {self.servo.kind if self.servo else "cap"}) amplitude={self.amplitude:.2f} '
             f'period={self.period_s:.1f}s cycles={self.cycles}'
         )
         self.timer = self.create_timer(self.dt, self.update)
@@ -65,18 +55,14 @@ class TestServo(Node):
             return self.center_pulse_us + t * (self.max_pulse_us - self.center_pulse_us)
         return self.center_pulse_us + t * (self.center_pulse_us - self.min_pulse_us)
 
-    def _duty_cycle(self, t: float) -> float:
-        period_us = 1e6 / self.PWM_FREQUENCY_HZ
-        return 100.0 * self._pulse_us(t) / period_us
-
     def update(self) -> None:
         self.elapsed += self.dt
         total = self.period_s * self.cycles
 
         if self.elapsed >= total:
             # Deixa el servo al centre i dona-li mig segon per arribar-hi.
-            if self.pwm is not None:
-                self.pwm.ChangeDutyCycle(self._duty_cycle(0.0))
+            if self.servo is not None:
+                self.servo.set_pulse(self._pulse_us(0.0))
             if self.elapsed >= total + 0.5:
                 self.get_logger().info('Prova acabada: servo centrat')
                 self.timer.cancel()
@@ -84,15 +70,14 @@ class TestServo(Node):
             return
 
         t = self.amplitude * math.sin(2.0 * math.pi * self.elapsed / self.period_s)
-        if self.pwm is not None:
-            self.pwm.ChangeDutyCycle(self._duty_cycle(t))
+        if self.servo is not None:
+            self.servo.set_pulse(self._pulse_us(t))
         self.get_logger().info(f'pols = {self._pulse_us(t):.0f} us', throttle_duration_sec=0.25)
 
     def destroy_node(self):
-        if self.pwm is not None:
-            self.pwm.ChangeDutyCycle(self._duty_cycle(0.0))
-            self.pwm.stop()
-            GPIO.cleanup(self.servo_pin)
+        if self.servo is not None:
+            self.servo.set_pulse(self._pulse_us(0.0))
+            self.servo.stop()
         super().destroy_node()
 
 

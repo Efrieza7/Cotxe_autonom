@@ -5,6 +5,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool
 
+from nodes.control.servo_pwm import PWM_FREQUENCY_HZ, ServoPwm
 from nodes.control.speed_control import GPIO, DRV8833Motor, QuadratureEncoder
 
 # Durada màxima de la prova (s). Mai es passa d'aquí, ni canviant paràmetres.
@@ -34,8 +35,6 @@ class TestMotors(Node):
     CAL TENIR EL COTXE AIXECAT: les rodes giren.
     """
 
-    SERVO_PWM_HZ = 50.0
-
     def __init__(self):
         super().__init__('test_motors')
 
@@ -45,7 +44,7 @@ class TestMotors(Node):
         bin2 = int(self.declare_parameter('bin2_pin', 16).value)
         enc_a = int(self.declare_parameter('enc_a_pin', 27).value)
         enc_b = int(self.declare_parameter('enc_b_pin', 17).value)
-        servo_pin = int(self.declare_parameter('servo_pin', 4).value)
+        servo_pin = int(self.declare_parameter('servo_pin', 18).value)
         pwm_frequency = float(self.declare_parameter('pwm_frequency_hz', 1000.0).value)
         invert_a = bool(self.declare_parameter('invert_motor_a', False).value)
         invert_b = bool(self.declare_parameter('invert_motor_b', False).value)
@@ -101,9 +100,7 @@ class TestMotors(Node):
                 DRV8833Motor(ain1, ain2, pwm_frequency, invert_a),
                 DRV8833Motor(bin1, bin2, pwm_frequency, invert_b),
             ]
-            GPIO.setup(servo_pin, GPIO.OUT, initial=GPIO.LOW)
-            self.servo = GPIO.PWM(servo_pin, self.SERVO_PWM_HZ)
-            self.servo.start(self._servo_duty(0.0))
+            self.servo = ServoPwm(servo_pin, self._servo_pulse(0.0), warn=self.get_logger().warn)
         except Exception as e:
             if 'gpiochip' in str(e):
                 # lgpio no pot obrir /dev/gpiochip*: falten permisos.
@@ -126,26 +123,24 @@ class TestMotors(Node):
 
         self.get_logger().info(
             f'Inspecció: A=({ain1},{ain2}) B=({bin1},{bin2}) encoder=({enc_a},{enc_b}) '
-            f'servo={servo_pin} duty={self.duty:.0f}% durada={self.end_s:.1f}s. '
+            f'servo={servo_pin} (PWM {self.servo.kind}) duty={self.duty:.0f}% durada={self.end_s:.1f}s. '
             'COTXE AIXECAT!'
         )
         self.start = time.monotonic()
         self.last_report = self.start
         self.last_ticks = 0
-        self.create_timer(1.0 / self.SERVO_PWM_HZ, self.update)
+        self.create_timer(1.0 / PWM_FREQUENCY_HZ, self.update)
 
     # -------------------------
     # SERVO
     # -------------------------
-    def _servo_duty(self, t):
+    def _servo_pulse(self, t):
         """t a [-1, 1]: -1 = min_pulse_us, 0 = centre, 1 = max_pulse_us."""
         if self.servo_invert:
             t = -t
         if t >= 0.0:
-            pulse = self.center_pulse_us + t * (self.max_pulse_us - self.center_pulse_us)
-        else:
-            pulse = self.center_pulse_us + t * (self.center_pulse_us - self.min_pulse_us)
-        return 100.0 * pulse * self.SERVO_PWM_HZ / 1e6
+            return self.center_pulse_us + t * (self.max_pulse_us - self.center_pulse_us)
+        return self.center_pulse_us + t * (self.center_pulse_us - self.min_pulse_us)
 
     # -------------------------
     # MISSIÓ
@@ -173,7 +168,7 @@ class TestMotors(Node):
             self.set_state('FRENADA (EBS)')
             for motor in self.motors:
                 motor.brake()
-            self.servo.ChangeDutyCycle(self._servo_duty(0.0))
+            self.servo.set_pulse(self._servo_pulse(0.0))
             self.report(t)
             return
         else:
@@ -186,7 +181,7 @@ class TestMotors(Node):
             motor.set(duty)
         if self.encoder is not None and duty != 0.0:
             self.encoder.direction = 1 if duty > 0.0 else -1
-        self.servo.ChangeDutyCycle(self._servo_duty(steer))
+        self.servo.set_pulse(self._servo_pulse(steer))
         self.report(t)
 
     def report(self, t, force=False):
@@ -221,11 +216,7 @@ class TestMotors(Node):
         # rpi-lgpio ja no els pot aturar (TypeError).
         motor = None
         if self.servo is not None:
-            try:
-                self.servo.stop()
-                GPIO.output(self.servo_pin, GPIO.LOW)
-            except Exception:
-                pass
+            self.servo.stop()
         self.motors = []
         self.servo = None
         # Motors i servo no es netegen (GPIO.cleanup()): es queden a 0 i, quan
