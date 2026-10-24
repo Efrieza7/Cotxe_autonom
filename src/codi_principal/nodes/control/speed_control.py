@@ -175,9 +175,9 @@ class MyNode(Node):
         # polsos de l'encoder arriben a ràfegues i la lectura té molt de soroll.
         self.rpm_filter_time = float(self.declare_parameter('rpm_filter_sec', 0.3).value)
         # PWM màxim (%). Amb els motors al 100 % i la CPU al màxim la Raspberry
-        # té caigudes de tensió (comparteix els 5 V del BEC); 0.5 m/s en
-        # necessita ~35 %.
-        self.max_duty = float(self.declare_parameter('max_duty', 70.0).value)
+        # té caigudes de tensió (comparteix els 5 V del BEC); aixecat, 0.5 m/s
+        # en necessita ~35 %, però a terra en cal més.
+        self.max_duty = float(self.declare_parameter('max_duty', 85.0).value)
         # Guanys en % de PWM per rpm d'error. Baixos perquè el soroll de
         # l'encoder no faci sacsejar els motors: el feedforward dona gairebé tot
         # el PWM i l'integral el corregeix a poc a poc.
@@ -218,8 +218,9 @@ class MyNode(Node):
         # -------- CONTROL --------
         self.target_speed = 0.0
         self.last_command_time = None
-        # L'integral pot aportar com a molt un ±40 % de PWM.
-        self.pid = PID(kp=kp, ki=ki, kd=kd, integral_limit=40.0 / max(ki, 1e-6))
+        # L'integral pot aportar com a molt un ±60 % de PWM: amb el feedforward
+        # (~30 % a 0.5 m/s) ha de poder arribar a max_duty.
+        self.pid = PID(kp=kp, ki=ki, kd=kd, integral_limit=60.0 / max(ki, 1e-6))
 
         self.last_ticks = 0
         self.last_time = None
