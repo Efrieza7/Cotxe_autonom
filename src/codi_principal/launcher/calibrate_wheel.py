@@ -13,7 +13,7 @@ d'executar alhora que full_car, fan servir els mateixos pins):
 
 Tecles:
     espai   engega / atura el gir continu (a `duty`)
-    f / b   empenteta endavant / enrere (ajust fi fins a la marca)
+    f / b   avança / retrocedeix `step-ticks` polsos (ajust fi fins a la marca)
     + / -   puja / baixa el duty del gir continu
     0       posa el comptador a 0 (la marca ha d'estar alineada)
     v       marca una volta completa (amb les rodes aturades a la marca)
@@ -23,10 +23,17 @@ Procediment: alinea la marca, prem 0, fes girar la roda i atura-la a prop de
 la marca; ajusta-la amb f / b i prem v. Repeteix-ho per a 5-10 voltes.
 COTXE AIXECAT i les dues rodes lliures: amb el diferencial, si una roda va
 més frenada que l'altra, les voltes de cada roda no coincideixen.
+
+Tot el moviment es controla amb l'encoder, perquè a poc duty el motor pot no
+vèncer la fricció: f / b pugen el duty a poc a poc fins que l'encoder marca
+`step-ticks` polsos, i si el gir continu no en marca cap en 1 s el duty puja
+sol. Si l'encoder no marca res, el motor no s'està movent (o l'encoder no
+funciona) i es para.
 """
 import argparse
 import math
 import os
+import select
 import sys
 import termios
 import time
@@ -44,15 +51,23 @@ ENCODER_PULSES_PER_MOTOR_REV = 7.0
 GEAR_RATIO = 100.0
 # Temps perquè el motor s'aturi del tot abans de llegir els polsos (s).
 SETTLE_S = 0.3
+# Rampa del duty de f / b mentre l'encoder no marca prou polsos (%/s) i temps màxim (s).
+STEP_RAMP = 40.0
+STEP_TIMEOUT_S = 1.5
+# Gir continu: si no hi ha polsos en STALL_S, el duty puja STALL_DUTY_STEP (fins a MAX_AUTO_DUTY).
+STALL_S = 1.0
+STALL_DUTY_STEP = 2.0
+MAX_AUTO_DUTY = 60.0
 
 
-def read_key() -> str:
-    """Llegeix una tecla sense esperar l'Enter."""
+def read_key(timeout=None) -> str:
+    """Llegeix una tecla sense esperar l'Enter ('' si passa `timeout` sense cap tecla)."""
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     try:
         tty.setraw(fd)
-        return sys.stdin.read(1)
+        ready, _, _ = select.select([sys.stdin], [], [], timeout)
+        return sys.stdin.read(1) if ready else ''
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
@@ -76,8 +91,10 @@ def print_result(turns: int, ticks: int, wheel_diameter: float) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--duty', type=float, default=20.0, help='PWM del gir continu en %% (per defecte 20)')
-    parser.add_argument('--burst-duty', type=float, default=25.0, help='PWM de les empentetes en %% (per defecte 25)')
-    parser.add_argument('--burst-s', type=float, default=0.03, help='durada de les empentetes en s (per defecte 0.03)')
+    parser.add_argument('--step-duty', type=float, default=15.0,
+                        help='PWM inicial de f / b en %% (puja sol si no es mou; per defecte 15)')
+    parser.add_argument('--step-ticks', type=int, default=3,
+                        help='polsos que avança f / b (per defecte 3, ~1.8 mm de roda)')
     parser.add_argument('--wheel-diameter', type=float, default=0.05436, help='diàmetre de la roda en m')
     # Pins i inversions per defecte: els de full_car.launch.py.
     parser.add_argument('--ain1', type=int, default=5)
@@ -120,9 +137,30 @@ def main() -> None:
             time.sleep(SETTLE_S)
             drive(0.0)
 
+        def step(direction):
+            """Mou la roda fins que l'encoder marca step_ticks polsos (o es rendeix)."""
+            start_ticks = encoder.ticks
+            start = time.monotonic()
+            d = step_duty
+            while abs(encoder.ticks - start_ticks) < args.step_ticks:
+                elapsed = time.monotonic() - start
+                if elapsed > STEP_TIMEOUT_S:
+                    break
+                d = min(100.0, step_duty + STEP_RAMP * elapsed)
+                drive(direction * d)
+                time.sleep(0.005)
+            halt()
+            moved = encoder.ticks - start_ticks
+            if moved == 0:
+                print(f'\nL\'encoder no ha marcat cap pols fins a {d:.0f}% de duty: '
+                      'el motor no es mou o l\'encoder no funciona.')
+            return moved
+
         duty = max(0.0, min(100.0, args.duty))
-        burst_duty = max(0.0, min(100.0, args.burst_duty))
+        step_duty = max(0.0, min(100.0, args.step_duty))
         running = False
+        last_ticks = encoder.ticks
+        last_move = time.monotonic()
         turns = 0
         marked_ticks = 0
 
@@ -134,7 +172,25 @@ def main() -> None:
             estat = 'GIRANT' if running else 'aturat'
             print(f'\r[{estat}] duty={duty:4.0f}%  polsos={ticks:+7d}  voltes marcades={turns}   ',
                   end='', flush=True)
-            key = read_key()
+            key = read_key(0.1 if running else None)
+
+            # Gir continu: si l'encoder no marca res, el duty no venç la fricció.
+            if running:
+                now = time.monotonic()
+                if encoder.ticks != last_ticks:
+                    last_ticks = encoder.ticks
+                    last_move = now
+                elif now - last_move > STALL_S:
+                    if duty < MAX_AUTO_DUTY:
+                        duty = min(MAX_AUTO_DUTY, duty + STALL_DUTY_STEP)
+                        drive(duty)
+                    else:
+                        halt()
+                        running = False
+                        print(f'\nSense polsos a {duty:.0f}% de duty: s\'atura. '
+                              'Comprova el motor i l\'encoder.')
+                    last_move = now
+
             if key in ('x', '\x03'):  # x o Ctrl+C
                 break
             if key == ' ':
@@ -142,6 +198,8 @@ def main() -> None:
                     halt()
                 else:
                     drive(duty)
+                    last_ticks = encoder.ticks
+                    last_move = time.monotonic()
                 running = not running
             elif key in ('+', '='):
                 duty = min(100.0, duty + 2.0)
@@ -152,9 +210,7 @@ def main() -> None:
                 if running:
                     drive(duty)
             elif key in ('f', 'b') and not running:
-                drive(burst_duty if key == 'f' else -burst_duty)
-                time.sleep(args.burst_s)
-                halt()
+                step(1 if key == 'f' else -1)
             elif key == '0' and not running:
                 encoder.ticks = 0
                 turns = 0
