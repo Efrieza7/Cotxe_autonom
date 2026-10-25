@@ -49,11 +49,10 @@ ENCODER_INVERT = False
 # Servo de direcció (steering): pin BCM i amplades de pols als dos extrems i
 # al centre. Calibrat amb `ros2 run my_pakage calibrate_servo` (24/10/2026):
 # esquerra 1060 us, rodes rectes a 1330 us, dreta 1600 us (±270 us).
-# 25/10/2026: el centre (rodes rectes) passa a 1500 us; es manté el ±270 us.
 SERVO_PIN = 18            # BCM (GPIO 18 = pin físic 12, PWM de maquinari)
-SERVO_MIN_PULSE_US = 1230.0
-SERVO_CENTER_PULSE_US = 1500.0
-SERVO_MAX_PULSE_US = 1770.0
+SERVO_MIN_PULSE_US = 1060.0
+SERVO_CENTER_PULSE_US = 1330.0
+SERVO_MAX_PULSE_US = 1600.0
 # Angle del servo a min/max pulse: 1000 us = 90 deg (±270 us = ±24.3 deg).
 SERVO_MAX_ANGLE = math.radians(24.3)  # rad
 SERVO_INVERT = True       # pols més curt = esquerra

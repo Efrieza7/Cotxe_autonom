@@ -181,7 +181,7 @@ class MyNode(Node):
         # PWM màxim (%). Amb els motors al 100 % i la CPU al màxim la Raspberry
         # té caigudes de tensió (comparteix els 5 V del BEC); aixecat, 0.5 m/s
         # en necessita ~35 %, però a terra en cal més.
-        self.max_duty = float(self.declare_parameter('max_duty', 85.0).value)
+        self.max_duty = float(self.declare_parameter('max_duty', 100.0).value)
         # Límits en accelerar (a terra, si la força arriba de cop, les rodes
         # derrapen). En frenar o aturar-se no es limita.
         self.max_accel = float(self.declare_parameter('max_accel', 0.5).value)  # m/s², rampa de l'objectiu
