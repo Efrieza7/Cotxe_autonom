@@ -13,8 +13,11 @@ class Steering(Node):
     - Subscriu `target_angle` (Float32, radians, positiu = gir a l'esquerra),
       publicat per `path_follower`. És l'angle de les rodes, no el del servo.
     - Converteix l'angle de les rodes en angle del servo amb la transmissió
-      Ackermann-servomotor: angle_rodes = K · sin(angle_servo), on K és
-      `wheel_angle_gain_deg` (el màxim teòric, amb el servo a 90°).
+      de barres: el braç del servo (`servo_arm_mm`) i el de la mangueta
+      (`knuckle_arm_mm`) desplacen la barra de direcció el mateix,
+      servo_arm · sin(angle_servo) = knuckle_arm · sin(angle_rodes), és a dir,
+      angle_rodes = asin(servo_arm / knuckle_arm · sin(angle_servo)).
+      L'angle del servo surt del pols: 1000 us = 90°.
     - Suavitza l'ordre per evitar canvis bruscos: filtre passa-baix
       (`smoothing_time_sec`), zona morta per ignorar correccions petites
       (`deadband_rad`) i límit de velocitat de gir (`max_delta_per_sec`).
@@ -33,11 +36,14 @@ class Steering(Node):
         self.servo_pin = int(self.declare_parameter('servo_pin', 18).value)  # BCM (GPIO 18 = pin físic 12)
         # Angle del servo (rad) a min_pulse_us / max_pulse_us.
         self.servo_max_angle = float(self.declare_parameter('servo_max_angle', 0.785398).value)
-        # Transmissió servo -> rodes: angle_rodes = K · sin(angle_servo), K en graus.
-        gain_deg = float(self.declare_parameter('wheel_angle_gain_deg', 24.52).value)
-        self.wheel_gain = math.radians(gain_deg)
+        # Transmissió servo -> rodes: angle_rodes = asin(servo_arm / knuckle_arm · sin(angle_servo)).
+        self.servo_arm = float(self.declare_parameter('servo_arm_mm', 25.85).value)
+        self.knuckle_arm = float(self.declare_parameter('knuckle_arm_mm', 26.92).value)
+        if self.servo_arm <= 0.0 or self.knuckle_arm <= 0.0:
+            raise ValueError('servo_arm_mm i knuckle_arm_mm han de ser > 0')
+        self.arm_ratio = self.servo_arm / self.knuckle_arm
         # Angle màxim de les rodes que permet el recorregut del servo (sin és màxim a 90°).
-        self.max_angle = self.wheel_gain * math.sin(min(self.servo_max_angle, math.pi / 2))
+        self.max_angle = self._wheel_angle(min(self.servo_max_angle, math.pi / 2))
         # Amplada de pols per a -servo_max_angle, 0 i +servo_max_angle (microsegons).
         self.min_pulse_us = float(self.declare_parameter('min_pulse_us', 1000.0).value)
         self.center_pulse_us = float(self.declare_parameter('center_pulse_us', 1500.0).value)
@@ -78,18 +84,21 @@ class Steering(Node):
             f'(PWM {self.servo.kind if self.servo else "cap"}) '
             f'pulses={self.min_pulse_us}/{self.center_pulse_us}/{self.max_pulse_us} us '
             f'servo_max={math.degrees(self.servo_max_angle):.0f} deg '
-            f'wheel_max={math.degrees(self.max_angle):.1f} deg (K={gain_deg} deg)'
+            f'wheel_max={math.degrees(self.max_angle):.1f} deg '
+            f'(braços servo/mangueta {self.servo_arm}/{self.knuckle_arm} mm)'
         )
 
     def callback_target(self, msg: Float32) -> None:
         if math.isfinite(msg.data):
             self.target_angle = max(-self.max_angle, min(self.max_angle, float(msg.data)))
 
+    def _wheel_angle(self, servo_angle: float) -> float:
+        """angle_rodes = asin(servo_arm / knuckle_arm · sin(angle_servo))."""
+        return math.asin(max(-1.0, min(1.0, self.arm_ratio * math.sin(servo_angle))))
+
     def _servo_angle(self, wheel_angle: float) -> float:
-        """Inversa de angle_rodes = K · sin(angle_servo)."""
-        if self.wheel_gain <= 0.0:
-            return 0.0
-        return math.asin(max(-1.0, min(1.0, wheel_angle / self.wheel_gain)))
+        """Inversa: angle_servo = asin(knuckle_arm / servo_arm · sin(angle_rodes))."""
+        return math.asin(max(-1.0, min(1.0, math.sin(wheel_angle) / self.arm_ratio)))
 
     def _pulse_us(self, wheel_angle: float) -> float:
         servo = self._servo_angle(wheel_angle)

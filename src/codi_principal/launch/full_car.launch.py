@@ -49,11 +49,12 @@ ENCODER_INVERT = False
 # Servo de direcció (steering): pin BCM i amplades de pols als dos extrems i
 # al centre. Calibrat amb `ros2 run my_pakage calibrate_servo` (24/10/2026):
 # esquerra 1060 us, rodes rectes a 1330 us, dreta 1600 us (±270 us).
+# 25/10/2026: el centre (rodes rectes) passa a 1500 us; es manté el ±270 us.
 SERVO_PIN = 18            # BCM (GPIO 18 = pin físic 12, PWM de maquinari)
-SERVO_MIN_PULSE_US = 1060.0
-SERVO_CENTER_PULSE_US = 1330.0
-SERVO_MAX_PULSE_US = 1600.0
-# Angle del servo a min/max pulse: estimat suposant 500 us = 45 deg (no mesurat).
+SERVO_MIN_PULSE_US = 1230.0
+SERVO_CENTER_PULSE_US = 1500.0
+SERVO_MAX_PULSE_US = 1770.0
+# Angle del servo a min/max pulse: 1000 us = 90 deg (±270 us = ±24.3 deg).
 SERVO_MAX_ANGLE = math.radians(24.3)  # rad
 SERVO_INVERT = True       # pols més curt = esquerra
 # Suavitzat de la direcció (steering): velocitat màxima de gir de les rodes,
@@ -62,10 +63,13 @@ STEER_MAX_RATE = 1.0          # rad/s
 STEER_SMOOTHING_TIME = 0.3    # s
 STEER_DEADBAND = 0.01         # rad (~0.6 deg)
 
-# Transmissió Ackermann-servomotor: angle_rodes = K · sin(angle_servo).
-WHEEL_ANGLE_GAIN_DEG = 24.52
-# Angle màxim de les rodes que permet el servo (~10.1 deg amb el servo a 24.3 deg).
-MAX_STEER = math.radians(WHEEL_ANGLE_GAIN_DEG) * math.sin(SERVO_MAX_ANGLE)  # rad
+# Transmissió servo -> rodes (barres): el braç del servo i el de la mangueta
+# desplacen la barra de direcció el mateix, de manera que
+# angle_rodes = asin(SERVO_ARM_MM / KNUCKLE_ARM_MM · sin(angle_servo)).
+SERVO_ARM_MM = 25.85
+KNUCKLE_ARM_MM = 26.92
+# Angle màxim de les rodes que permet el servo (~23.3 deg amb el servo a 24.3 deg).
+MAX_STEER = math.asin(SERVO_ARM_MM / KNUCKLE_ARM_MM * math.sin(SERVO_MAX_ANGLE))  # rad
 
 # El LIDAR (LD500) és sobre l'eix davanter (rodes de gir): és el punt (0, 0)
 # de /pose. Només cal indicar si el seu zero no mira cap endavant.
@@ -105,7 +109,8 @@ def generate_launch_description():
             parameters=[{
                 'servo_pin': SERVO_PIN,
                 'servo_max_angle': SERVO_MAX_ANGLE,
-                'wheel_angle_gain_deg': WHEEL_ANGLE_GAIN_DEG,
+                'servo_arm_mm': SERVO_ARM_MM,
+                'knuckle_arm_mm': KNUCKLE_ARM_MM,
                 'min_pulse_us': SERVO_MIN_PULSE_US,
                 'center_pulse_us': SERVO_CENTER_PULSE_US,
                 'max_pulse_us': SERVO_MAX_PULSE_US,
