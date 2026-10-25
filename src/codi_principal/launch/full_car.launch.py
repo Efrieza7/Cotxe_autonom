@@ -19,7 +19,7 @@ TARGET_SPEED = 0.5        # m/s
 LOOKAHEAD = 0.2           # m, pure pursuit
 
 # Motor i encoder (speed_control).
-WHEEL_DIAMETER = 0.053    # m
+WHEEL_DIAMETER = 0.05436   # m
 # Motor GA12-N20 amb encoder Hall: 7 polsos per volta del motor intern (fase A,
 # flancs de pujada) x la reducció de la caixa. El motor és de 150 rpm a 6 V,
 # que correspon a 1:100 (amb test_motors al 100 % es mesuren ~1470 polsos/s,

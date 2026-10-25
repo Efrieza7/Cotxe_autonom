@@ -149,6 +149,10 @@ class MyNode(Node):
     - Publica `wheel_speed` (Float32, m/s) mesurada, per a `bicycle_model`.
     - Seguretat: si no arriba cap `target_speed` en `command_timeout_sec`,
       atura el motor.
+    - Control de tracció: mentre `slip_detected` (Bool, de `bicycle_model`)
+      és True, l'objectiu és 0 (PWM a 0, roda lliure) perquè les rodes
+      recuperin adherència; després la rampa `max_accel` torna a accelerar.
+      Si fa més de `slip_timeout_sec` que no arriba, s'ignora.
 
     Si RPi.GPIO no està disponible o `dry_run` és True, no toca el motor i
     publica com a `wheel_speed` la velocitat ordenada (útil per provar-ho
@@ -160,7 +164,7 @@ class MyNode(Node):
 
         # -------- PARAMETRES --------
         # Diàmetre de la roda motriu (m): MESURA'L i posa'l al launch.
-        self.wheel_diameter = float(self.declare_parameter('wheel_diameter', 0.053).value)
+        self.wheel_diameter = float(self.declare_parameter('wheel_diameter', 0.05436).value)
         # Polsos del canal A de l'encoder per cada volta de la RODA
         # (si l'encoder és al motor, multiplica per la reducció).
         self.PULSES_PER_REV = float(self.declare_parameter('pulses_per_wheel_rev', 280.0).value)
@@ -182,6 +186,7 @@ class MyNode(Node):
         # derrapen). En frenar o aturar-se no es limita.
         self.max_accel = float(self.declare_parameter('max_accel', 0.5).value)  # m/s², rampa de l'objectiu
         self.max_duty_rate = float(self.declare_parameter('max_duty_rate', 80.0).value)  # %/s, rampa del PWM
+        self.slip_timeout = float(self.declare_parameter('slip_timeout_sec', 0.2).value)
         # Guanys en % de PWM per rpm d'error. Baixos perquè el soroll de
         # l'encoder no faci sacsejar els motors: el feedforward dona gairebé tot
         # el PWM i l'integral el corregeix a poc a poc.
@@ -222,6 +227,8 @@ class MyNode(Node):
         # -------- CONTROL --------
         self.target_speed = 0.0
         self.last_command_time = None
+        self.slip_detected = False
+        self.slip_time = None
         # L'integral pot aportar com a molt un ±60 % de PWM: amb el feedforward
         # (~30 % a 0.5 m/s) ha de poder arribar a max_duty.
         self.pid = PID(kp=kp, ki=ki, kd=kd, integral_limit=60.0 / max(ki, 1e-6))
@@ -233,6 +240,7 @@ class MyNode(Node):
         self.last_control = 0.0
 
         self.create_subscription(Float32, 'target_speed', self.target_callback, 10)
+        self.create_subscription(Bool, 'slip_detected', self.slip_callback, 10)
         self.speed_pub = self.create_publisher(Float32, 'wheel_speed', 10)
         # Per als LEDs d'estat (status_led): True mentre els motors tenen comanda.
         self.moving_pub = self.create_publisher(Bool, 'car_moving', 10)
@@ -252,6 +260,12 @@ class MyNode(Node):
         if math.isfinite(msg.data):
             self.target_speed = max(-self.max_speed, min(self.max_speed, float(msg.data)))
             self.last_command_time = self.get_clock().now()
+
+    def slip_callback(self, msg: Bool):
+        if msg.data and not self.slip_detected:
+            self.get_logger().warn('Derrapada: es talla la potència del motor')
+        self.slip_detected = bool(msg.data)
+        self.slip_time = self.get_clock().now()
 
     # -------------------------
     # MOTOR CONTROL
@@ -277,7 +291,12 @@ class MyNode(Node):
             self.last_command_time is None
             or (now - self.last_command_time).nanoseconds * 1e-9 > self.command_timeout
         )
-        target = 0.0 if timed_out else self.target_speed
+        slipping = (
+            self.slip_detected
+            and self.slip_time is not None
+            and (now - self.slip_time).nanoseconds * 1e-9 < self.slip_timeout
+        )
+        target = 0.0 if timed_out or slipping else self.target_speed
         self.moving_pub.publish(Bool(data=self.hardware and target != 0.0))
 
         # temps real entre crides (el timer pot tenir retard), no el període nominal

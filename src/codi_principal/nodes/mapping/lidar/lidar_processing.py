@@ -6,7 +6,7 @@ import math
 
 # Deixar aquesta variable a 0 fins a comprovar el funcionament del codi. En cas de ser necessari per
 # reduir l'error del model matemàtic, començar amb valors de 0.1 i no superar mai 1.
-difference_reductor = 0
+difference_reductor = 0.5
 
 # Global persistent matrix of cones as a message instance
 # `cons` is a ConsMap() message; data is interleaved: [x,y,count, x,y,count, ...]

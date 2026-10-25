@@ -73,7 +73,7 @@ class IMUReader(Node):
     def __init__(self):
         super().__init__('imu_reader')
         self.rate_hz = float(self.declare_parameter('rate_hz', 50.0).value)
-        self.calibration_sec = float(self.declare_parameter('calibration_sec', 2.0).value)
+        self.calibration_sec = float(self.declare_parameter('calibration_sec', 5.0).value)
         # -1.0 si la Sense HAT està muntada de cap per avall
         self.yaw_sign = float(self.declare_parameter('yaw_sign', 1.0).value)
         # Eix de l'acceleròmetre que apunta cap endavant del cotxe ('x', 'y' o 'z')
