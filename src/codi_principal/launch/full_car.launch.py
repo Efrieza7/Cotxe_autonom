@@ -15,8 +15,12 @@ from launch_ros.parameter_descriptions import ParameterValue
 # (car_simulator.launch.py i simulation_full.launch.py).
 # ---------------------------------------------------------------------------
 WHEELBASE = 0.18          # m, distància entre eixos
-TARGET_SPEED = 0.5        # m/s
+TARGET_SPEED = 0.75       # m/s
 LOOKAHEAD = 0.2           # m, pure pursuit
+# IMU (imu_reader) desactivada temporalment: sense ella, bicycle_model calcula el
+# gir només amb el model i la velocitat només amb l'encoder (sense detecció de
+# derrapades). Torna-la a True per activar-la.
+USE_IMU = False
 
 # Motor i encoder (speed_control).
 WHEEL_DIAMETER = 0.05436   # m
@@ -141,7 +145,8 @@ def generate_launch_description():
         # motor_reader no es llança: el seu port per defecte (/dev/ttyUSB0) és el
         # del LIDAR i el reconfigura a 9600 baud. La velocitat ja surt de
         # speed_control (wheel_speed, encoder).
-        Node(package='my_pakage', executable='imu_reader', name='imu_reader', output='screen'),
+        *([Node(package='my_pakage', executable='imu_reader', name='imu_reader', output='screen')]
+          if USE_IMU else []),
 
         # --- Localització ---
         Node(

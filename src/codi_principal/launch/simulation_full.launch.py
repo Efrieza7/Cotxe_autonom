@@ -34,9 +34,11 @@ def generate_launch_description():
 
 
 # Each track: map file in car_simulator/maps and a start pose (x, y, yaw) on its
-# centreline, heading along the track. All maps are 0.35 m wide.
+# centreline, heading along the track. All maps are 0.35 m wide and their
+# centreline has no curve tighter than 0.5 m radius (the car turns at ~0.42 m
+# minimum); circuit_BCN was scaled x2.2 to get there.
 TRACKS = {
-    'bcn': ('circuit_BCN.yaml', '1.384', '0.785', '-2.131'),
+    'bcn': ('circuit_BCN.yaml', '3.048', '1.731', '-2.132'),
     'realista': ('circuit_realista_35.yaml', '0.0', '0.0', '1.5596'),
 }
 
@@ -101,7 +103,7 @@ def _launch_setup(context):
                 'lookahead': 0.2,
                 'wheelbase': 0.18,
                 'max_steer_rad': MAX_STEER,
-                'target_speed': 0.5,
+                'target_speed': 0.75,
             }],
         ),
     ]

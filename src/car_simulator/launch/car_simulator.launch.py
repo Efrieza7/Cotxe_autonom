@@ -1,3 +1,4 @@
+import math
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -14,6 +15,10 @@ WHEELBASE = 0.18
 TRACK = 0.13
 # Height of the LiDAR scan plane above the ground (m), same as urdf/car.urdf.
 LIDAR_HEIGHT = 0.085
+# Max front wheel angle (rad), same as codi_principal's full_car.launch.py:
+# wheel = asin(servo_arm / knuckle_arm * sin(servo)), servo arm 25.85 mm,
+# knuckle arm 26.92 mm, servo at 24.3 deg -> ~23.3 deg (turning radius ~0.42 m).
+MAX_STEER = math.asin(25.85 / 26.92 * math.sin(math.radians(24.3)))
 
 
 def generate_launch_description():
@@ -65,6 +70,7 @@ def generate_launch_description():
             parameters=[{
                 'wheelbase': WHEELBASE,
                 'track': TRACK,
+                'max_steer_rad': MAX_STEER,
                 'speed_mps': speed_mps,
                 'start_x': ParameterValue(start_x, value_type=float),
                 'start_y': ParameterValue(start_y, value_type=float),

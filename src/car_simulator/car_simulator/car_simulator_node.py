@@ -30,6 +30,8 @@ class CarSimulatorNode(Node):
 
         self.declare_parameter('wheelbase', 0.18)
         self.declare_parameter('track', 0.13)
+        # max front wheel angle (rad); 0 = no limit
+        self.declare_parameter('max_steer_rad', 0.0)
         self.declare_parameter('speed_mps', 0.0)
         self.declare_parameter('update_rate_hz', 50.0)
         self.declare_parameter('start_x', 0.0)
@@ -43,6 +45,7 @@ class CarSimulatorNode(Node):
         self.declare_parameter('base_frame', 'base_link')
 
         self.wheelbase = float(self.get_parameter('wheelbase').value)
+        self.max_steer = float(self.get_parameter('max_steer_rad').value)
         self.speed = float(self.get_parameter('speed_mps').value)
         update_rate = float(self.get_parameter('update_rate_hz').value)
         self.map_frame = str(self.get_parameter('map_frame').value)
@@ -77,11 +80,15 @@ class CarSimulatorNode(Node):
 
         self.get_logger().info(
             f'Car simulator started: wheelbase={self.wheelbase} speed={self.speed} '
+            f'max_steer={math.degrees(self.max_steer):.1f} deg '
             f'steering_topic={steering_topic} speed_topic={speed_topic}'
         )
 
     def _steering_cb(self, msg: Float32) -> None:
-        self.steer = float(msg.data)
+        steer = float(msg.data)
+        if self.max_steer > 0.0:
+            steer = max(-self.max_steer, min(self.max_steer, steer))
+        self.steer = steer
 
     def _speed_cb(self, msg: Float32) -> None:
         self.speed = float(msg.data)
