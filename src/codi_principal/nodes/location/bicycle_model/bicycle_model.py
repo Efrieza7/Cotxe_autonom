@@ -29,9 +29,12 @@ class BicycleLocation(Node):
         `imu_timeout_sec` que no arriba), v = wheel_speed.
       - `steering_angle` (Float32, rad): angle ordenat al servo per `steering`.
       - `imu/yaw_rate` (Float32, rad/s, opcional): giroscopi de `imu_reader`.
-        Si arriba, el gir és la mitjana del giroscopi i del model
-        v / wheelbase * tan(steering); si fa més de `imu_timeout_sec` que no
-        arriba, el gir es calcula només amb el model.
+        Si arriba, el gir surt del giroscopi (integrant totes les lectures
+        entre dos escanejos), barrejat amb el model v / wheelbase *
+        tan(steering) segons `gyro_weight` (1 = només giroscopi). El model
+        es queda curt: a les proves el cotxe girava més del doble del que
+        calculava. Si fa més de `imu_timeout_sec` que no arriba, el gir es
+        calcula només amb el model.
       - `/lidar_node/location_solved` (opcional, `use_lidar_correction`):
         correcció de posició de `lidar_processing`.
 
@@ -51,6 +54,8 @@ class BicycleLocation(Node):
         self.distancia_rodes = float(self.declare_parameter('wheelbase', 0.18).value)
         scan_topic = str(self.declare_parameter('scan_topic', '/ldlidar_node/scan').value)
         self.imu_timeout = float(self.declare_parameter('imu_timeout_sec', 0.2).value)
+        # Pes del giroscopi en el gir (0 = només model, 1 = només giroscopi).
+        self.gyro_weight = float(self.declare_parameter('gyro_weight', 1.0).value)
         # Detecció de derrapada (l'acceleròmetre només es fa servir mentre les rodes derrapen)
         self.slip_accel_threshold = float(
             self.declare_parameter('slip_accel_threshold', 2.0).value
@@ -87,6 +92,8 @@ class BicycleLocation(Node):
         self.slip_start = None
         self.direccio_rodes = 0.0
         self.imu_yaw_rate = None
+        self.imu_yaw_delta = 0.0  # gir integrat del giroscopi des de l'últim escaneig (rad)
+        self.imu_delta_time = 0.0  # temps que cobreix imu_yaw_delta (s)
         self.imu_time = None
 
         self.create_subscription(Float32, 'wheel_speed', self.speed_callback, 10)
@@ -200,8 +207,15 @@ class BicycleLocation(Node):
 
     def imu_callback(self, msg):
         if math.isfinite(msg.data):
+            now = self.get_clock().now()
+            if self.imu_time is not None:
+                dt = (now - self.imu_time).nanoseconds * 1e-9
+                if 0.0 < dt < self.imu_timeout:
+                    # trapezi entre aquesta lectura i l'anterior
+                    self.imu_yaw_delta += 0.5 * (self.imu_yaw_rate + float(msg.data)) * dt
+                    self.imu_delta_time += dt
             self.imu_yaw_rate = float(msg.data)
-            self.imu_time = self.get_clock().now()
+            self.imu_time = now
 
     def lidar_callback(self, msg):
         if not self.use_lidar_correction or len(msg.data) < 2:
@@ -235,10 +249,18 @@ class BicycleLocation(Node):
             and (now - self.imu_time).nanoseconds * 1e-9 < self.imu_timeout
         )
         v = self.v if self._accel_fresh(now) else self.v_motor
+        model_yaw_rate = (v / self.distancia_rodes) * math.tan(self.direccio_rodes)
         if imu_fresh:
-            yaw_rate = (self.imu_yaw_rate + (v / self.distancia_rodes) * math.tan(self.direccio_rodes)) / 2.0
+            # gir mitjà del giroscopi des de l'últim escaneig
+            gyro_yaw_rate = (
+                self.imu_yaw_delta / self.imu_delta_time
+                if self.imu_delta_time > 0.0 else self.imu_yaw_rate
+            )
+            yaw_rate = self.gyro_weight * gyro_yaw_rate + (1.0 - self.gyro_weight) * model_yaw_rate
         else:
-            yaw_rate = (v / self.distancia_rodes) * math.tan(self.direccio_rodes)
+            yaw_rate = model_yaw_rate
+        self.imu_yaw_delta = 0.0
+        self.imu_delta_time = 0.0
 
         # Actualitzar la direcció, x i y: arc exacte (dt entre escanejos és gran)
         heading0 = self.direccio_actual

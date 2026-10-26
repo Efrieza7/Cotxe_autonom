@@ -17,10 +17,10 @@ from launch_ros.parameter_descriptions import ParameterValue
 WHEELBASE = 0.18          # m, distància entre eixos
 TARGET_SPEED = 0.5        # m/s
 LOOKAHEAD = 0.2           # m, pure pursuit
-# IMU (imu_reader) desactivada temporalment: sense ella, bicycle_model calcula el
-# gir només amb el model i la velocitat només amb l'encoder (sense detecció de
-# derrapades). Torna-la a True per activar-la.
-USE_IMU = False
+# IMU (imu_reader): el gir de bicycle_model surt del giroscopi. Sense ella (False)
+# el gir surt només del model, que es queda curt (a les proves el cotxe girava
+# més del doble del calculat), i la velocitat només de l'encoder.
+USE_IMU = True
 
 # Motor i encoder (speed_control).
 WHEEL_DIAMETER = 0.05436   # m
@@ -51,14 +51,16 @@ INVERT_MOTOR_B = False
 ENCODER_INVERT = False
 
 # Servo de direcció (steering): pin BCM i amplades de pols als dos extrems i
-# al centre. Calibrat amb `ros2 run my_pakage calibrate_servo` (24/10/2026):
-# esquerra 1060 us, rodes rectes a 1330 us, dreta 1600 us (±270 us).
+# al centre. Calibrat amb `ros2 run my_pakage calibrate_servo` (26/10/2026):
+# tope esquerre 810 us, rodes rectes a 1090 us, tope dret 1510 us. steering
+# suposa el mateix recorregut als dos costats: es fa servir el més curt (±280 us).
+# (Abans, 24/10/2026: 1060 / 1330 / 1600 us; el braç del servo s'ha desplaçat.)
 SERVO_PIN = 18            # BCM (GPIO 18 = pin físic 12, PWM de maquinari)
-SERVO_MIN_PULSE_US = 1060.0
-SERVO_CENTER_PULSE_US = 1330.0
-SERVO_MAX_PULSE_US = 1600.0
-# Angle del servo a min/max pulse: 1000 us = 90 deg (±270 us = ±24.3 deg).
-SERVO_MAX_ANGLE = math.radians(24.3)  # rad
+SERVO_MIN_PULSE_US = 810.0
+SERVO_CENTER_PULSE_US = 1090.0
+SERVO_MAX_PULSE_US = 1370.0
+# Angle del servo a min/max pulse: 1000 us = 90 deg (±280 us = ±25.2 deg).
+SERVO_MAX_ANGLE = math.radians(25.2)  # rad
 SERVO_INVERT = True       # pols més curt = esquerra
 # Suavitzat de la direcció (steering): velocitat màxima de gir de les rodes,
 # filtre passa-baix de l'ordre i zona morta per ignorar correccions petites.
@@ -71,7 +73,7 @@ STEER_DEADBAND = 0.01         # rad (~0.6 deg)
 # angle_rodes = asin(SERVO_ARM_MM / KNUCKLE_ARM_MM · sin(angle_servo)).
 SERVO_ARM_MM = 25.85
 KNUCKLE_ARM_MM = 26.92
-# Angle màxim de les rodes que permet el servo (~23.3 deg amb el servo a 24.3 deg).
+# Angle màxim de les rodes que permet el servo (~24.1 deg amb el servo a 25.2 deg).
 MAX_STEER = math.asin(SERVO_ARM_MM / KNUCKLE_ARM_MM * math.sin(SERVO_MAX_ANGLE))  # rad
 
 # El LIDAR (LD500) és sobre l'eix davanter (rodes de gir): és el punt (0, 0)
