@@ -15,7 +15,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 # (car_simulator.launch.py i simulation_full.launch.py).
 # ---------------------------------------------------------------------------
 WHEELBASE = 0.18          # m, distància entre eixos
-TARGET_SPEED = 0.75       # m/s
+TARGET_SPEED = 0.5        # m/s
 LOOKAHEAD = 0.2           # m, pure pursuit
 # IMU (imu_reader) desactivada temporalment: sense ella, bicycle_model calcula el
 # gir només amb el model i la velocitat només amb l'encoder (sense detecció de
