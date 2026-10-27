@@ -70,6 +70,7 @@ setup(
             'lidar_processing = nodes.mapping.lidar.lidar_processing:main',
             'bicycle_model = nodes.location.bicycle_model.bicycle_model:main',
             'cone_map_viz = nodes.mapping.lidar.cone_map_viz:main',
+            'car_viz = nodes.visualization.car_viz:main',
             'motor_reader = nodes.location.motor_reader:main',
             'path_planning = nodes.path_planning.path_planner_bridge_node:main',
             'path_planner_bridge = nodes.path_planning.path_planner_bridge_node:main',

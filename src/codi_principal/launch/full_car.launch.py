@@ -16,7 +16,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 # ---------------------------------------------------------------------------
 WHEELBASE = 0.18          # m, distància entre eixos
 TARGET_SPEED = 0.5        # m/s
-LOOKAHEAD = 0.2           # m, pure pursuit
+LOOKAHEAD = 0.45           # m, pure pursuit
 # IMU (imu_reader): el gir de bicycle_model surt del giroscopi. Sense ella (False)
 # el gir surt només del model, que es queda curt (a les proves el cotxe girava
 # més del doble del calculat), i la velocitat només de l'encoder.
@@ -64,8 +64,8 @@ SERVO_MAX_ANGLE = math.radians(24.3)  # rad
 SERVO_INVERT = True      # pols més curt = dreta (27/10/2026: amb True girava al revés)
 # Suavitzat de la direcció (steering): velocitat màxima de gir de les rodes,
 # filtre passa-baix de l'ordre i zona morta per ignorar correccions petites.
-STEER_MAX_RATE = 1.0          # rad/s
-STEER_SMOOTHING_TIME = 0.3    # s
+STEER_MAX_RATE = 4.0          # rad/s
+STEER_SMOOTHING_TIME = 0.05   # s
 STEER_DEADBAND = 0.01         # rad (~0.6 deg)
 
 # Transmissió servo -> rodes (barres): el braç del servo i el de la mangueta
@@ -83,6 +83,19 @@ MAX_STEER = math.asin(SERVO_ARM_MM / KNUCKLE_ARM_MM * math.sin(SERVO_MAX_ANGLE))
 LIDAR_YAW_OFFSET = math.radians(90.0)    # rad, positiu = cap a l'esquerra
 # Els punts del LIDAR més lluny d'això (m) s'ignoren al mapatge.
 LIDAR_MAX_RANGE = 2.0
+# Port del foxglove_bridge (Foxglove: ws://frieza-desktop.local:8765).
+FOXGLOVE_PORT = 8765
+
+
+def car_description():
+    """car.urdf del simulador amb el LIDAR girat LIDAR_YAW_OFFSET, com al cotxe real."""
+    urdf_path = os.path.join(get_package_share_directory('car_simulator'), 'urdf', 'car.urdf')
+    with open(urdf_path, 'r') as f:
+        urdf = f.read()
+    mount = '<origin xyz="0 0 0.085" rpy="0 0 0"/>'
+    if urdf.count(mount) != 1:
+        raise RuntimeError(f'No trobo la unió del LIDAR a {urdf_path}')
+    return urdf.replace(mount, f'<origin xyz="0 0 0.085" rpy="0 0 {LIDAR_YAW_OFFSET}"/>')
 
 
 def generate_launch_description():
@@ -91,6 +104,7 @@ def generate_launch_description():
     use_lidar = LaunchConfiguration('use_lidar')
     dry_run = ParameterValue(LaunchConfiguration('dry_run'), value_type=bool)
     start_yaw = ParameterValue(LaunchConfiguration('start_yaw'), value_type=float)
+    viz = LaunchConfiguration('viz')
 
     # Driver del LIDAR (publica /ldlidar_node/scan). El LD500 (kit D500,
     # sensor STL-19P) fa servir el mateix protocol que el LD19, per això el
@@ -195,6 +209,29 @@ def generate_launch_description():
         ),
     ]
 
+    # --- Visualització (Foxglove) ---
+    # Model del cotxe (TF base_link -> rodes, LIDAR), cons, camí i recorregut.
+    # robot_description es publica a /car_description perquè el driver del
+    # LIDAR ja en publica un altre a /robot_description.
+    viz_nodes = [
+        Node(
+            package='robot_state_publisher', executable='robot_state_publisher',
+            name='car_state_publisher', output='screen',
+            parameters=[{'robot_description': car_description()}],
+            remappings=[('/robot_description', '/car_description')],
+            condition=IfCondition(viz),
+        ),
+        Node(package='my_pakage', executable='car_viz', name='car_viz', output='screen',
+             condition=IfCondition(viz)),
+        Node(package='my_pakage', executable='cone_map_viz', name='cone_map_viz', output='screen',
+             condition=IfCondition(viz)),
+        Node(
+            package='foxglove_bridge', executable='foxglove_bridge', name='foxglove_bridge',
+            output='screen', parameters=[{'port': FOXGLOVE_PORT}],
+            condition=IfCondition(viz),
+        ),
+    ]
+
     return LaunchDescription([
         DeclareLaunchArgument(
             'serial_port', default_value='/dev/ldlidar', description='Serial port for the lidar'
@@ -214,6 +251,11 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'start_yaw', default_value='0.0', description='Initial heading of /pose (rad)'
         ),
+        DeclareLaunchArgument(
+            'viz', default_value='true',
+            description='Start the Foxglove visualization (car model, cones, path) and foxglove_bridge'
+        ),
         ldlidar_include,
         *nodes,
+        *viz_nodes,
     ])
