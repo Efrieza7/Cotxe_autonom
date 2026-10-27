@@ -15,7 +15,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 # (car_simulator.launch.py i simulation_full.launch.py).
 # ---------------------------------------------------------------------------
 WHEELBASE = 0.18          # m, distància entre eixos
-TARGET_SPEED = 0.2        # m/s
+TARGET_SPEED = 0.3        # m/s
 LOOKAHEAD = 0.45           # m, pure pursuit
 # IMU (imu_reader): el gir de bicycle_model surt del giroscopi. Sense ella (False)
 # el gir surt només del model, que es queda curt (a les proves el cotxe girava
@@ -64,7 +64,7 @@ SERVO_MAX_ANGLE = math.radians(24.3)  # rad
 SERVO_INVERT = True      # pols més curt = dreta (27/10/2026: amb True girava al revés)
 # Suavitzat de la direcció (steering): velocitat màxima de gir de les rodes,
 # filtre passa-baix de l'ordre i zona morta per ignorar correccions petites.
-STEER_MAX_RATE = 4.0          # rad/s
+STEER_MAX_RATE = 1.0          # rad/s
 STEER_SMOOTHING_TIME = 0.05   # s
 STEER_DEADBAND = 0.01         # rad (~0.6 deg)
 
