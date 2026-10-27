@@ -61,7 +61,7 @@ SERVO_CENTER_PULSE_US = 1560.0
 SERVO_MAX_PULSE_US = 1830.0
 # Angle del servo a min/max pulse: 1000 us = 90 deg (±270 us = ±24.3 deg).
 SERVO_MAX_ANGLE = math.radians(24.3)  # rad
-SERVO_INVERT = False      # pols més curt = dreta (27/10/2026: amb True girava al revés)
+SERVO_INVERT = True      # pols més curt = dreta (27/10/2026: amb True girava al revés)
 # Suavitzat de la direcció (steering): velocitat màxima de gir de les rodes,
 # filtre passa-baix de l'ordre i zona morta per ignorar correccions petites.
 STEER_MAX_RATE = 1.0          # rad/s
