@@ -16,7 +16,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 # ---------------------------------------------------------------------------
 WHEELBASE = 0.18          # m, distància entre eixos
 TARGET_SPEED = 0.3        # m/s
-LOOKAHEAD = 0.45           # m, pure pursuit
+LOOKAHEAD = 0.5           # m, pure pursuit
 # IMU (imu_reader): el gir de bicycle_model surt del giroscopi. Sense ella (False)
 # el gir surt només del model, que es queda curt (a les proves el cotxe girava
 # més del doble del calculat), i la velocitat només de l'encoder.

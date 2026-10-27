@@ -17,14 +17,22 @@ class DRV8833Motor:
     """Un canal del pont H DRV8833 (xIN1, xIN2).
 
     El DRV8833 no té pin de PWM separat: la velocitat es controla posant el
-    PWM directament a les entrades. Endavant = PWM a IN1 i IN2 a 0; enrere =
-    IN1 a 0 i PWM a IN2; aturat = tots dos a 0 (roda lliure).
+    PWM directament a les entrades. Aturat (duty 0) = tots dos a 0 (roda lliure).
+
+    - `slow_decay=True` (per defecte): endavant = IN1 a 1 i PWM invertit a IN2
+      (enrere, al revés). Durant la part baixa del PWM el motor queda frenat
+      (curtcircuitat) i el corrent no cau: molt més parell a poca velocitat
+      i velocitat gairebé proporcional al duty (mode recomanat al full de
+      dades per controlar velocitat).
+    - `slow_decay=False` (fast decay): endavant = PWM a IN1 i IN2 a 0. Durant
+      la part baixa el motor va en roda lliure: a poc duty té poca força.
     """
 
-    def __init__(self, in1, in2, frequency_hz=1000, invert=False):
+    def __init__(self, in1, in2, frequency_hz=1000, invert=False, slow_decay=True):
         if invert:
             in1, in2 = in2, in1
         self.pins = (in1, in2)
+        self.slow_decay = slow_decay
         # Pull-down abans de fer-los sortida: quan el programa s'acaba, el
         # kernel torna els pins a entrada i així queden a 0 (motor aturat).
         GPIO.setup(in1, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
@@ -39,7 +47,15 @@ class DRV8833Motor:
     def set(self, duty):
         """duty a [-100, 100] (%): signe = sentit de gir."""
         duty = max(-100.0, min(100.0, duty))
-        if duty >= 0:
+        if duty == 0.0:
+            # roda lliure (no frenat): el control de tracció hi compta
+            self.pwm1.ChangeDutyCycle(0)
+            self.pwm2.ChangeDutyCycle(0)
+        elif self.slow_decay:
+            on, pwm = (self.pwm1, self.pwm2) if duty > 0 else (self.pwm2, self.pwm1)
+            on.ChangeDutyCycle(100)
+            pwm.ChangeDutyCycle(100.0 - abs(duty))
+        elif duty > 0:
             self.pwm2.ChangeDutyCycle(0)
             self.pwm1.ChangeDutyCycle(duty)
         else:
@@ -142,8 +158,9 @@ class MyNode(Node):
     - Subscriu `target_speed` (Float32, m/s), publicat per `path_follower`.
     - Llegeix l'encoder (fase A) i calcula les RPM de la roda, amb el signe
       de la velocitat objectiu.
-    - Cicle de treball del PWM del DRV8833 = feedforward (RPM objectiu /
-      `max_wheel_rpm`) + PID sobre RPM per corregir la diferència. Mai fa
+    - Cicle de treball del PWM del DRV8833 (en slow decay, `slow_decay`) =
+      feedforward (`ff_min_duty` + RPM objectiu / `max_wheel_rpm`) + PID sobre
+      RPM per corregir la diferència. Mai fa
       girar el motor en sentit contrari a l'objectiu. Els dos motors (A amb
       encoder, B sense) reben la mateixa comanda.
     - Publica `wheel_speed` (Float32, m/s) mesurada, per a `bicycle_model`.
@@ -171,10 +188,16 @@ class MyNode(Node):
         self.max_speed = float(self.declare_parameter('max_speed', 1.0).value)  # m/s
         self.command_timeout = float(self.declare_parameter('command_timeout_sec', 0.5).value)
         self.period = float(self.declare_parameter('control_period_sec', 0.1).value)
-        # Feedforward: PWM = 100 % x RPM objectiu / max_wheel_rpm. El motor no és
-        # lineal (aixecat fa ~190 rpm amb un 30 % de PWM i ~315 amb el 100 %):
-        # 600 dona el PWM de ~0.5 m/s, i l'integral corregeix la resta.
-        self.max_wheel_rpm = float(self.declare_parameter('max_wheel_rpm', 600.0).value)
+        # Mode del DRV8833 (vegeu DRV8833Motor): slow decay dona més parell a poca velocitat.
+        self.slow_decay = bool(self.declare_parameter('slow_decay', True).value)
+        # Feedforward: PWM = ff_min_duty + 100 % x RPM objectiu / max_wheel_rpm.
+        # ff_min_duty compensa la fricció (el PWM per sota del qual la roda no
+        # gira) i max_wheel_rpm és la pendent. L'integral corregeix la resta.
+        # Mesurat aixecat amb slow decay (27/10/2026): no gira per sota del ~20 %
+        # i de 25 a 50 % fa ~3.5 rpm per % (25 % -> 41 rpm, 50 % -> 129 rpm).
+        # Amb fast decay seria ~0 i ~600.
+        self.ff_min_duty = float(self.declare_parameter('ff_min_duty', 13.0).value)
+        self.max_wheel_rpm = float(self.declare_parameter('max_wheel_rpm', 352.0).value)
         # Filtre passa-baix de les RPM mesurades (s): amb la CPU carregada els
         # polsos de l'encoder arriben a ràfegues i la lectura té molt de soroll.
         self.rpm_filter_time = float(self.declare_parameter('rpm_filter_sec', 0.3).value)
@@ -214,8 +237,8 @@ class MyNode(Node):
         if self.hardware:
             GPIO.setmode(GPIO.BCM)
             self.motors = [
-                DRV8833Motor(self.AIN1, self.AIN2, pwm_frequency, invert_a),
-                DRV8833Motor(self.BIN1, self.BIN2, pwm_frequency, invert_b),
+                DRV8833Motor(self.AIN1, self.AIN2, pwm_frequency, invert_a, self.slow_decay),
+                DRV8833Motor(self.BIN1, self.BIN2, pwm_frequency, invert_b, self.slow_decay),
             ]
             self.encoder = QuadratureEncoder(self.ENC_A, self.ENC_B, encoder_invert)
         else:
@@ -335,7 +358,7 @@ class MyNode(Node):
             control = 0.0
         else:
             target_rpm = self.speed_to_rpm(target)
-            feedforward = 100.0 * target_rpm / self.max_wheel_rpm
+            feedforward = math.copysign(self.ff_min_duty, target_rpm) + 100.0 * target_rpm / self.max_wheel_rpm
             control = feedforward + self.pid.compute(target_rpm, rpm)
             # Sense marxa enrere per frenar: el PWM queda entre 0 i ±max_duty en
             # el sentit de l'objectiu.
