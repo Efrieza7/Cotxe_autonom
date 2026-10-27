@@ -137,3 +137,23 @@ def test_build_cones_falls_back_to_unknown_on_invalid_indices():
 
     assert out[1].shape == (0, 2)
     assert np.allclose(out[0], np.array([[2.0, 1.0], [2.0, -1.0]]))
+
+
+def test_build_cones_labels_only_near_cones_with_label_radius():
+    # near left, near right, far left (ahead), near-left but too far ahead
+    cons = [0.0, 0.2, 3.0, 0.0, -0.2, 3.0, 1.0, 0.2, 3.0, 0.3, 0.1, 3.0]
+    out = build_cone_observations(
+        cons_data=cons,
+        cone_types_count=5,
+        unknown_index=0,
+        left_index=2,
+        right_index=1,
+        vehicle_position=(0.0, 0.0),
+        vehicle_direction=(1.0, 0.0),
+        label_radius=0.4,
+        label_max_ahead=0.15,
+    )
+
+    assert np.allclose(out[2], np.array([[0.0, 0.2]]))
+    assert np.allclose(out[1], np.array([[0.0, -0.2]]))
+    assert np.allclose(out[0], np.array([[1.0, 0.2], [0.3, 0.1]]))

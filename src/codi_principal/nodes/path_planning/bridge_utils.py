@@ -18,8 +18,19 @@ def build_cone_observations(
     right_index: int | None = None,
     lateral_deadband: float = 1e-6,
     heading_min_norm: float = 1e-9,
+    label_radius: float | None = None,
+    label_max_ahead: float | None = None,
 ) -> List[np.ndarray]:
-    """Convert ConsMap interleaved data [x, y, count, ...] into planner cone arrays."""
+    """Convert ConsMap interleaved data [x, y, count, ...] into planner cone arrays.
+
+    Cones are labelled LEFT/RIGHT by the side of the line along the vehicle
+    heading they fall on. With `label_radius` (and `label_max_ahead`), only
+    cones closer than `label_radius` to the vehicle and at most
+    `label_max_ahead` in front of it are labelled; the rest stay UNKNOWN and
+    the planner's cone sorting assigns them. Far cones of a tight curve cross
+    the heading line (outer cones end up on the inner side), and a wrong label
+    cuts that boundary short: the path then turns too late.
+    """
     valid_points = []
     usable_len = len(cons_data) - (len(cons_data) % 3)
 
@@ -91,6 +102,13 @@ def build_cone_observations(
 
     left_mask = lateral_offsets > lateral_deadband
     right_mask = lateral_offsets < -lateral_deadband
+    if label_radius is not None:
+        forward_offsets = relative_points @ direction_unit
+        near_mask = np.hypot(forward_offsets, lateral_offsets) < label_radius
+        if label_max_ahead is not None:
+            near_mask &= forward_offsets < label_max_ahead
+        left_mask &= near_mask
+        right_mask &= near_mask
     unknown_mask = ~(left_mask | right_mask)
 
     cone_observations[left_index] = valid_points_array[left_mask]
