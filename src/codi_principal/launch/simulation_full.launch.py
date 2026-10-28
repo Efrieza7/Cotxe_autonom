@@ -48,7 +48,7 @@ TRACKS = {
 
 
 def _launch_setup(context):
-    use_rviz = LaunchConfiguration('use_rviz')
+    # use_rviz = LaunchConfiguration('use_rviz')
     track = LaunchConfiguration('track').perform(context)
     if track not in TRACKS:
         raise RuntimeError(f"Unknown track '{track}'. Options: {', '.join(TRACKS)}")
