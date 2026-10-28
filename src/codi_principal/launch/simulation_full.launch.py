@@ -63,7 +63,7 @@ def _launch_setup(context):
             )
         ),
         launch_arguments={
-            'use_rviz': use_rviz,
+            #'use_rviz': use_rviz,
             'map_file': os.path.join(get_package_share_directory('car_simulator'), 'maps', map_name),
             'start_x': start_x,
             'start_y': start_y,
