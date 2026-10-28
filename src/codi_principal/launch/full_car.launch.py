@@ -73,8 +73,8 @@ STEER_DEADBAND = 0.01         # rad (~0.6 deg)
 # desplacen la barra de direcció el mateix, de manera que
 # angle_rodes = asin(SERVO_ARM_MM / KNUCKLE_ARM_MM · sin(angle_servo)).
 SERVO_ARM_MM = 25.85
-KNUCKLE_ARM_MM = 26.92
-# Angle màxim de les rodes que permet el servo (~23.3 deg amb el servo a 24.3 deg).
+KNUCKLE_ARM_MM = 22.0    # de l'eix de gir de la roda a la barra de direcció (28/10/2026)
+# Angle màxim de les rodes que permet el servo (~28.9 deg amb el servo a 24.3 deg).
 MAX_STEER = math.asin(SERVO_ARM_MM / KNUCKLE_ARM_MM * math.sin(SERVO_MAX_ANGLE))  # rad
 
 # El LIDAR (LD500) és sobre l'eix davanter (rodes de gir): és el punt (0, 0)

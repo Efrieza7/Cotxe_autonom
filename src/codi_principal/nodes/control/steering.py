@@ -38,7 +38,7 @@ class Steering(Node):
         self.servo_max_angle = float(self.declare_parameter('servo_max_angle', 0.785398).value)
         # Transmissió servo -> rodes: angle_rodes = asin(servo_arm / knuckle_arm · sin(angle_servo)).
         self.servo_arm = float(self.declare_parameter('servo_arm_mm', 25.85).value)
-        self.knuckle_arm = float(self.declare_parameter('knuckle_arm_mm', 26.92).value)
+        self.knuckle_arm = float(self.declare_parameter('knuckle_arm_mm', 22.0).value)
         if self.servo_arm <= 0.0 or self.knuckle_arm <= 0.0:
             raise ValueError('servo_arm_mm i knuckle_arm_mm han de ser > 0')
         self.arm_ratio = self.servo_arm / self.knuckle_arm

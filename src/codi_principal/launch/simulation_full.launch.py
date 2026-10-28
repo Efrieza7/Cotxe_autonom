@@ -9,8 +9,8 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 # Angle màxim real de les rodes (rad): igual que full_car.launch.py,
-# angle_rodes = asin(25.85 / 26.92 · sin(angle_servo)) amb el servo a 24.3 deg (~23.3 deg).
-MAX_STEER = math.asin(25.85 / 26.92 * math.sin(math.radians(24.3)))
+# angle_rodes = asin(25.85 / 22 · sin(angle_servo)) amb el servo a 24.3 deg (~28.9 deg).
+MAX_STEER = math.asin(25.85 / 22.0 * math.sin(math.radians(24.3)))
 
 
 def generate_launch_description():
@@ -35,7 +35,7 @@ def generate_launch_description():
 
 # Each track: map file in car_simulator/maps and a start pose (x, y, yaw) on its
 # centreline, heading along the track. All maps are 0.35 m wide and their
-# centreline has no curve tighter than 0.5 m radius (the car turns at ~0.42 m
+# centreline has no curve tighter than 0.5 m radius (the car turns at ~0.33 m
 # minimum); circuit_BCN was scaled x2.2 to get there.
 TRACKS = {
     'bcn': ('circuit_BCN.yaml', '3.048', '1.731', '-2.132'),
