@@ -79,6 +79,7 @@ setup(
             'start_car = launcher.start_car:main',
             'test_servo = launcher.test_servo:main',
             'calibrate_servo = launcher.calibrate_servo:main',
+            'steer_limits = launcher.steer_limits:main',
             'calibrate_wheel = launcher.calibrate_wheel:main',
             'test_motors = launcher.test_motors:main',
             'gpio_reset = launcher.gpio_reset:main',

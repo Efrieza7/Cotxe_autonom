@@ -39,6 +39,10 @@ def generate_launch_description():
 # minimum); circuit_BCN was scaled x2.2 to get there.
 TRACKS = {
     'bcn': ('circuit_BCN.yaml', '3.048', '1.731', '-2.132'),
+    # circuit_BCN amb una sola vora (o per trams), per provar el camí amb una banda
+    'bcn_fora': ('circuit_BCN_nomes_fora.yaml', '3.048', '1.731', '-2.132'),
+    'bcn_dins': ('circuit_BCN_nomes_dins.yaml', '3.048', '1.731', '-2.132'),
+    'bcn_trams': ('circuit_BCN_trams.yaml', '3.048', '1.731', '-2.132'),
     'realista': ('circuit_realista_35.yaml', '0.0', '0.0', '1.5596'),
 }
 
