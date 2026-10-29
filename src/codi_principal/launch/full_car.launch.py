@@ -193,7 +193,7 @@ def generate_launch_description():
                 'path_topic': '/path_planning/waypoints',
                 'mission': 'trackdrive',
                 'planner_scale': 10.0,
-                'side_label_radius': 0.30,
+                'side_label_radius': 0.40,
             }],
         ),
         Node(
