@@ -17,8 +17,8 @@ TRACK = 0.13
 LIDAR_HEIGHT = 0.085
 # Max front wheel angle (rad), same as codi_principal's full_car.launch.py:
 # wheel = asin(servo_arm / knuckle_arm * sin(servo)), servo arm 25.85 mm,
-# knuckle arm 22 mm, servo at 24.3 deg -> ~28.9 deg (turning radius ~0.33 m).
-MAX_STEER = math.asin(25.85 / 22.0 * math.sin(math.radians(24.3)))
+# knuckle arm 22 mm, servo at 18.0 deg -> ~21.3 deg (turning radius ~0.46 m).
+MAX_STEER = math.asin(25.85 / 22.0 * math.sin(math.radians(18.0)))
 
 
 def generate_launch_description():
