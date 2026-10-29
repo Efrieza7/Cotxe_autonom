@@ -9,8 +9,8 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 # Angle màxim real de les rodes (rad): igual que full_car.launch.py,
-# angle_rodes = asin(25.85 / 22 · sin(angle_servo)) amb el servo a 24.3 deg (~28.9 deg).
-MAX_STEER = math.asin(25.85 / 22.0 * math.sin(math.radians(24.3)))
+# angle_rodes = asin(25.85 / 22 · sin(angle_servo)) amb el servo a 28.8 deg (~34.5 deg).
+MAX_STEER = math.asin(25.85 / 22.0 * math.sin(math.radians(28.8)))
 
 
 def generate_launch_description():
