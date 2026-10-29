@@ -15,8 +15,8 @@ from launch_ros.parameter_descriptions import ParameterValue
 # (car_simulator.launch.py i simulation_full.launch.py).
 # ---------------------------------------------------------------------------
 WHEELBASE = 0.18          # m, distància entre eixos
-TARGET_SPEED = 0.2        # m/s
-LOOKAHEAD = 0.325          # m, pure pursuit
+TARGET_SPEED = 0.4        # m/s
+LOOKAHEAD = 0.50           # m, pure pursuit
 # IMU (imu_reader): el gir de bicycle_model surt del giroscopi. Sense ella (False)
 # el gir surt només del model, que es queda curt (a les proves el cotxe girava
 # més del doble del calculat), i la velocitat només de l'encoder.
@@ -193,6 +193,7 @@ def generate_launch_description():
                 'path_topic': '/path_planning/waypoints',
                 'mission': 'trackdrive',
                 'planner_scale': 10.0,
+                'side_label_radius': 0.40,
             }],
         ),
         Node(
