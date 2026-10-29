@@ -35,8 +35,11 @@ def get_cone_sorting_config(
         max_dist=6.5,
         max_dist_to_first=6.0,
         max_length=12,
-        threshold_directional_angle=np.deg2rad(40),
-        threshold_absolute_angle=np.deg2rad(65),
+        # 29/10/2026: abans 40 / 65 deg. Amb cons cada ~0.18 m, a la vora de dins
+        # d'una corba de R 0.3 m cada con gira més de 40 deg i l'ordenació la
+        # descartava (el camí sortia recte).
+        threshold_directional_angle=np.deg2rad(60),
+        threshold_absolute_angle=np.deg2rad(90),
         use_unknown_cones=True,
     )
 
@@ -45,7 +48,10 @@ def get_cone_fitting_config(
     mission: MissionTypes,  # pylint: disable=unused-argument
 ) -> KwargsType:
     """Create cone fitting kwargs."""
-    return dict(smoothing=0.5, predict_every=0.1, max_deg=3)  # 29/10/2026: abans 0.2, més suau = corbes més obertes
+    # 29/10/2026: abans 0.2. Amb pocs cons vistos, més suavitzat obre les corbes
+    # tancades (prova fora de línia: corba de R 0.75 m -> camí de ~1 m amb 0.2/0.5,
+    # ~0.55 m amb 0.05).
+    return dict(smoothing=0.05, predict_every=0.1, max_deg=3)
 
 
 def get_path_calculation_config(
