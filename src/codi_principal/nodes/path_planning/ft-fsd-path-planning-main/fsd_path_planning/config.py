@@ -45,7 +45,7 @@ def get_cone_fitting_config(
     mission: MissionTypes,  # pylint: disable=unused-argument
 ) -> KwargsType:
     """Create cone fitting kwargs."""
-    return dict(smoothing=0.2, predict_every=0.1, max_deg=3)
+    return dict(smoothing=0.5, predict_every=0.1, max_deg=3)  # 29/10/2026: abans 0.2, més suau = corbes més obertes
 
 
 def get_path_calculation_config(
