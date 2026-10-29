@@ -75,11 +75,6 @@ class PathPlannerBridgeNode(Node):
         # 4-7 % of the track before, never after). <= 0 labels every cone.
         self.declare_parameter("side_label_radius", 0.4)
         self.declare_parameter("side_label_max_ahead", 0.15)
-        # When only one boundary is seen, fsd_path_planning places virtual
-        # cones min_track_width away and follows their midpoint, i.e. at
-        # min_track_width / 2 from the wall. Its hard-coded 3 (planner units)
-        # is 0.15 m here; this sets that distance in metres instead.
-        self.declare_parameter("single_side_offset", 0.20)
 
         self.map_topic = self.get_parameter("map_topic").value
         self.pose_topic = self.get_parameter("pose_topic").value
@@ -102,15 +97,6 @@ class PathPlannerBridgeNode(Node):
             mission=mission,
             experimental_performance_improvements=experimental,
         )
-        single_side_offset = float(self.get_parameter("single_side_offset").value)
-        if math.isfinite(single_side_offset) and single_side_offset > 0.0:
-            self.planner.cone_matching.state.min_track_width = (
-                2.0 * single_side_offset * self.planner_scale
-            )
-        else:
-            self.get_logger().warning(
-                "single_side_offset must be > 0; keeping the planner default"
-            )
 
         self.pose_sub = self.create_subscription(
             Float32MultiArray, self.pose_topic, self.pose_callback, 10

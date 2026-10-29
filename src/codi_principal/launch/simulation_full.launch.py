@@ -35,7 +35,7 @@ def generate_launch_description():
 
 # Each track: map file in car_simulator/maps and a start pose (x, y, yaw) on its
 # centreline, heading along the track. All maps are 0.35 m wide and their
-# centreline has no curve tighter than 0.5 m radius (the car turns at ~0.33 m
+# centreline has no curve tighter than 0.5 m radius (the car turns at ~0.26 m
 # minimum); circuit_BCN was scaled x2.2 to get there.
 TRACKS = {
     'bcn': ('circuit_BCN.yaml', '3.048', '1.731', '-2.132'),

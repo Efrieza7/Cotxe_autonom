@@ -90,31 +90,27 @@ class PathFollower(Node):
             return
 
         x, y, yaw = self.pose
-        # /pose is the front axle (LiDAR position). Lookahead and geometry are
-        # measured from there, so it is the front axle that follows the path.
-        look_pt = self.find_lookahead_point(x, y)
+        # /pose is the front axle (LiDAR position); pure pursuit is defined
+        # from the rear axle, so lookahead and geometry are measured from there.
+        rear_x = x - self.wheelbase * math.cos(yaw)
+        rear_y = y - self.wheelbase * math.sin(yaw)
+        look_pt = self.find_lookahead_point(rear_x, rear_y)
         if look_pt is None:
             return
 
         lx, ly = look_pt
-        dx = lx - x
-        dy = ly - y
+        dx = lx - rear_x
+        dy = ly - rear_y
         # angle from vehicle heading to lookahead
         angle_to_pt = math.atan2(dy, dx)
         alpha = normalize_angle(angle_to_pt - yaw)
 
+        # Pure pursuit steering: delta = atan2(2*L*sin(alpha), Ld)
         Ld = math.hypot(dx, dy)
         if Ld < 1e-6:
             return
 
-        # Pure pursuit from the front axle: it moves along heading + delta on
-        # a circle of radius L / sin(delta), so reaching the point means
-        # Ld = 2 * L / sin(delta) * sin(alpha - delta), i.e.
-        # delta = atan2(2*L*sin(alpha), Ld + 2*L*cos(alpha)).
-        steering = math.atan2(
-            2.0 * self.wheelbase * math.sin(alpha),
-            Ld + 2.0 * self.wheelbase * math.cos(alpha),
-        )
+        steering = math.atan2(2.0 * self.wheelbase * math.sin(alpha), Ld)
         steering = max(-self.max_steer, min(self.max_steer, steering))
 
         # publish steering (radians) as Float32 -> `steering` expects `target_angle`

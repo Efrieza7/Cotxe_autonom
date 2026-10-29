@@ -17,7 +17,6 @@ from launch_ros.parameter_descriptions import ParameterValue
 WHEELBASE = 0.18          # m, distància entre eixos
 TARGET_SPEED = 0.2        # m/s
 LOOKAHEAD = 0.45           # m, pure pursuit
-SINGLE_SIDE_OFFSET = 0.20  # m, distància del camí a la paret quan només se'n veu una
 # IMU (imu_reader): el gir de bicycle_model surt del giroscopi. Sense ella (False)
 # el gir surt només del model, que es queda curt (a les proves el cotxe girava
 # més del doble del calculat), i la velocitat només de l'encoder.
@@ -194,8 +193,6 @@ def generate_launch_description():
                 'path_topic': '/path_planning/waypoints',
                 'mission': 'trackdrive',
                 'planner_scale': 10.0,
-                # m: distància a la paret quan només se'n veu una
-                'single_side_offset': SINGLE_SIDE_OFFSET,
             }],
         ),
         Node(

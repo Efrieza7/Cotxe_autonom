@@ -185,16 +185,15 @@ class MyNode(Node):
         # Límits en accelerar (a terra, si la força arriba de cop, les rodes
         # derrapen). En frenar o aturar-se no es limita.
         self.max_accel = float(self.declare_parameter('max_accel', 0.5).value)  # m/s², rampa de l'objectiu
-        self.max_duty_rate = float(self.declare_parameter('max_duty_rate', 120.0).value)  # %/s, rampa del PWM
+        self.max_duty_rate = float(self.declare_parameter('max_duty_rate', 200.0).value)  # %/s, rampa del PWM
         self.slip_timeout = float(self.declare_parameter('slip_timeout_sec', 0.2).value)
         # Guanys en % de PWM per rpm d'error (l'integral suma l'error de cada
-        # cicle de control_period_sec). Amb 50 rpm de menys, P afegeix ~3.5 %
-        # de cop i I ~15 % per segon. Amb 0.03 / 0.02 (1.5 % i 10 % per segon)
-        # el cotxe es quedava sense força a les corbes; amb 0.15 / 0.05 la
-        # velocitat oscil·lava (objectiu 0.2 m/s, mesurat 0.14-0.32) i el
-        # cotxe anava a empentes.
-        kp = float(self.declare_parameter('kp', 0.07).value)
-        ki = float(self.declare_parameter('ki', 0.03).value)
+        # cicle de control_period_sec). Prou forts perquè en una corba, on la
+        # roda té més càrrega, el PWM pugi de pressa: amb 50 rpm de menys, P
+        # afegeix ~8 % de cop i I ~25 % per segon. Abans (0.03 / 0.02) només
+        # 1.5 % i 10 % per segon, i el cotxe es quedava sense força.
+        kp = float(self.declare_parameter('kp', 0.15).value)
+        ki = float(self.declare_parameter('ki', 0.05).value)
         kd = float(self.declare_parameter('kd', 0.0).value)
         dry_run = bool(self.declare_parameter('dry_run', False).value)
 
