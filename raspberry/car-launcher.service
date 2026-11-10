@@ -1,0 +1,26 @@
+# En arrencar la Raspberry, espera el botó del joystick de la Sense HAT i
+# engega full_car.launch.py (launcher/start_car.py --loop). Mentre espera,
+# els LEDs són blaus (status-led.service). Tornant a prémer el botó s'atura
+# el cotxe i es torna a esperar.
+# S'instal·la amb: sudo ./raspberry/install_car_launcher.sh
+# (l'script substitueix @USER@ i @REPO_DIR@)
+[Unit]
+Description=Espera el botó del joystick i engega el cotxe (full_car.launch.py)
+After=network-online.target gpio-reset.service status-led.service
+Wants=network-online.target
+
+[Service]
+User=@USER@
+# Com a status-led.service: si els nodes arrenquen abans que hi hagi xarxa,
+# status_led no els veu. S'espera fins a 60 s que hi hagi xarxa, i 10 s més.
+# Sense WiFi, el botó funciona igualment al cap d'uns 70 s.
+ExecStartPre=/bin/sh -c 'for i in $(seq 60); do ip -4 route | grep -q default && break; sleep 1; done; sleep 10'
+ExecStart=/bin/bash -c 'source /opt/ros/jazzy/setup.bash && source @REPO_DIR@/install/setup.bash && exec ros2 run my_pakage start_car --loop'
+# SIGINT com un Ctrl+C: els nodes aturen els motors abans de sortir.
+KillSignal=SIGINT
+TimeoutStopSec=20
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

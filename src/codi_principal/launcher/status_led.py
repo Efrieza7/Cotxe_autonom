@@ -3,6 +3,7 @@
 
 - apagat:               la Raspberry encara arrenca (o el servei està aturat)
 - verd fix:             preparada, no s'executa cap launch
+- blau fix:             `start_car` espera que es premi el botó del joystick
 - groc fix:             s'executa un launch, però el cotxe està aturat
 - vermell parpellejant: el cotxe es mou (`speed_control` o `test_motors`
                         publiquen `car_moving` = True)
@@ -25,6 +26,10 @@ OFF = (0, 0, 0)
 GREEN = (0, 255, 0)
 YELLOW = (255, 160, 0)
 RED = (255, 0, 0)
+BLUE = (0, 0, 255)
+
+# El crea start_car (amb el seu PID) mentre espera el botó del joystick.
+WAITING_FLAG = '/tmp/cotxe_esperant_boto'
 
 
 class SenseHatMatrix:
@@ -87,12 +92,23 @@ class StatusLed(Node):
             for name in self.get_node_names()
         )
 
+    def waiting_for_button(self):
+        """start_car està esperant el botó? (fitxer amb el PID d'un procés viu)"""
+        try:
+            with open(WAITING_FLAG) as f:
+                pid = int(f.read().strip())
+        except (OSError, ValueError):
+            return False
+        return os.path.exists(f'/proc/{pid}')
+
     def update(self):
         now = time.monotonic()
         if self.last_moving is not None and now - self.last_moving < self.moving_timeout:
             color = RED if int(now * self.blink_hz * 2) % 2 == 0 else OFF
         elif self.launch_running():
             color = YELLOW
+        elif self.waiting_for_button():
+            color = BLUE
         else:
             color = GREEN
         self.matrix.fill(color)
