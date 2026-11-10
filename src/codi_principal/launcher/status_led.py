@@ -86,7 +86,11 @@ class StatusLed(Node):
         """Hi ha algun altre node ROS en marxa (un launch o un ros2 run)?
 
         Els nodes ocults (_ros2cli_*, que crea l'eina `ros2`) no compten.
+        A vegades ROS no rep els noms dels nodes (surten _NODE_NAME_UNKNOWN_)
+        però sí els topics: per això també compta que algú publiqui car_moving.
         """
+        if self.count_publishers('car_moving') > 0:
+            return True
         return any(
             name != self.get_name() and not name.startswith('_')
             for name in self.get_node_names()
