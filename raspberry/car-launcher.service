@@ -11,6 +11,9 @@ Wants=network-online.target
 
 [Service]
 User=@USER@
+# lgpio (RPi.GPIO de speed_control i steering) crea el fitxer .lgd-nfy* al
+# directori actual: a / no pot i els nodes peten. Com quan es fa a mà.
+WorkingDirectory=@REPO_DIR@
 # Com a status-led.service: si els nodes arrenquen abans que hi hagi xarxa,
 # status_led no els veu. S'espera fins a 60 s que hi hagi xarxa, i 10 s més.
 # Sense WiFi, el botó funciona igualment al cap d'uns 70 s.
